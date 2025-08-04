@@ -14,18 +14,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+    // --- Persistencia en localStorage para pedidos por mesa ---
+    function getMesasState() {
+      return JSON.parse(localStorage.getItem('mesas_state') || '{}');
+    }
+    function setMesasState(state) {
+      localStorage.setItem('mesas_state', JSON.stringify(state));
+    }
+    // Guarda el pedido actual de la mesa
+    function savePedidoMesa(mesaId, pedido) {
+      const state = getMesasState();
+      state[mesaId] = state[mesaId] || {};
+      state[mesaId].pedido = pedido;
+      setMesasState(state);
+    }
+    // Borra el pedido de la mesa
+    function clearPedidoMesa(mesaId) {
+      const state = getMesasState();
+      if (state[mesaId]) delete state[mesaId].pedido;
+      setMesasState(state);
+    }
+    // Obtiene el pedido guardado de la mesa
+    function getPedidoMesa(mesaId) {
+      const state = getMesasState();
+      return state[mesaId] && state[mesaId].pedido ? state[mesaId].pedido : null;
+    }
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
         body {
             font-family: 'Poppins', sans-serif;
             background-color: #f0f8ff;
+            font-size: 1rem;
         }
         
         .logo {
             color: white;
             font-weight: 700;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            text-shadow: 0.06em 0.06em 0.13em rgba(0,0,0,0.1);
         }
         
         .bg-primary {
@@ -78,8 +106,8 @@
         }
         
         .product-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transform: translateY(-0.13rem);
+            box-shadow: 0 0.25rem 0.38rem rgba(0,0,0,0.1);
         }
         
         .scrollbar-hide::-webkit-scrollbar {
@@ -145,7 +173,7 @@
         .receipt-content {
             background-color: white;
             border-radius: 0.5rem;
-            max-width: 500px;
+            max-width: 31.25rem;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
@@ -608,6 +636,133 @@
         console.error("Error de conexión:", response.error);
       }
     });
+
+  // --- Lógica de mover mesa ---
+  document.addEventListener('DOMContentLoaded', function() {
+    const btnMoverMesa = document.getElementById('btn-mover-mesa');
+    if (btnMoverMesa) {
+      btnMoverMesa.addEventListener('click', function() {
+        mostrarModalMoverMesa();
+      });
+    }
+    const cancelarBtn = document.getElementById('cancelar-mover-mesa');
+    if (cancelarBtn) {
+      cancelarBtn.onclick = function() {
+        document.getElementById('modal-mover-mesa').style.display = 'none';
+      };
+    }
+  });
+
+  function mostrarModalMoverMesa() {
+    const mesasDisponibles = getMesasDisponiblesParaMover();
+    const modal = document.getElementById('modal-mover-mesa');
+    const lista = document.getElementById('mesas-disponibles-list');
+    lista.innerHTML = '';
+    if (mesasDisponibles.length === 0) {
+      lista.innerHTML = '<div style="color:#b91c1c;font-weight:500;">No hay mesas disponibles para mover.</div>';
+    } else {
+      mesasDisponibles.forEach(mesaId => {
+        const btn = document.createElement('button');
+        btn.textContent = `Mesa ${mesaId}`;
+        btn.style.padding = '0.7rem 1.2rem';
+        btn.style.borderRadius = '0.7rem';
+        btn.style.background = '#3d819d';
+        btn.style.color = '#fff';
+        btn.style.fontWeight = '600';
+        btn.style.fontSize = '1rem';
+        btn.style.border = 'none';
+        btn.style.cursor = 'pointer';
+        btn.onclick = function() {
+          moverPedidoAMesa(mesaId);
+          modal.style.display = 'none';
+        };
+        lista.appendChild(btn);
+      });
+    }
+    modal.style.display = 'flex';
+  }
+
+  function moverPedidoAMesa(nuevaMesaId) {
+    if (!currentMesaId || !nuevaMesaId) return;
+    const pedido = getPedidoMesa(currentMesaId);
+    if (!pedido) {
+      alert('No hay pedido para mover.');
+      return;
+    }
+    // Guardar en la nueva mesa
+    savePedidoMesa(nuevaMesaId, pedido);
+    // Limpiar la mesa actual
+    clearPedidoMesa(currentMesaId);
+    // Redirigir a la nueva mesa
+    window.location.href = `pantalla_2.html?mesa=${nuevaMesaId}`;
+  }
+
+  // --- Cargar pedido guardado al abrir la mesa ---
+  let currentPedido = null;
+  let currentMesaId = null;
+  document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const mesa = params.get('mesa');
+    currentMesaId = mesa;
+    if (mesa) {
+      // Cargar pedido guardado si existe
+      const pedidoGuardado = getPedidoMesa(mesa);
+      if (pedidoGuardado) {
+        // Asume que tienes una función para cargar el pedido al UI, si no, implementa aquí
+        cargarPedidoEnUI(pedidoGuardado);
+        currentPedido = pedidoGuardado;
+      }
+    }
+  });
+
+  // --- Guardar automáticamente cada vez que cambia el pedido ---
+  function onPedidoChange(nuevoPedido) {
+    currentPedido = nuevoPedido;
+    if (currentMesaId) {
+      savePedidoMesa(currentMesaId, nuevoPedido);
+    }
+  }
+
+  // --- Limpiar pedido de la mesa (por ejemplo, al finalizar o limpiar) ---
+  function onPedidoClear() {
+    if (currentMesaId) {
+      clearPedidoMesa(currentMesaId);
+    }
+  }
+
+  // --- Ejemplo de integración con el resto del código ---
+  // Llama a onPedidoChange(pedido) cada vez que el pedido cambie (agregar, quitar, modificar items)
+  // Llama a onPedidoClear() cuando se limpie/finalice el pedido
+
+  // Implementa cargarPedidoEnUI para poblar la UI con los datos guardados
+  function cargarPedidoEnUI(pedido) {
+    // Productos
+    if (pedido.items && Array.isArray(pedido.items)) {
+      const orderItemsDiv = document.getElementById('order-items');
+      orderItemsDiv.innerHTML = '';
+      pedido.items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center py-2 border-b';
+        div.innerHTML = `<span>${item.nombre || item.name || 'Producto'}</span><span>x${item.cantidad || item.qty || 1}</span>`;
+        orderItemsDiv.appendChild(div);
+      });
+      if (pedido.items.length === 0) {
+        orderItemsDiv.innerHTML = '<div class="text-center text-gray-500 py-4">No hay productos agregados</div>';
+      }
+    }
+    // Total
+    if (typeof pedido.total !== 'undefined') {
+      const totalSpan = document.getElementById('total');
+      if (totalSpan) totalSpan.textContent = `$${pedido.total}`;
+    }
+    // Cliente
+    if (pedido.cliente) {
+      if (pedido.cliente.nombre) document.getElementById('customer-name').value = pedido.cliente.nombre;
+      if (pedido.cliente.tipoId) document.getElementById('customer-id-type').value = pedido.cliente.tipoId;
+      if (pedido.cliente.id) document.getElementById('customer-id').value = pedido.cliente.id;
+      if (pedido.cliente.contacto) document.getElementById('customer-contact').value = pedido.cliente.contacto;
+    }
+  }
 </script>
 </head>
 <body class="min-h-screen">
@@ -812,6 +967,17 @@
                 Cancelar
             </button>
         </div>
+    </div>
+
+    <!-- Modal para mover mesa -->
+    <div id="modal-mover-mesa" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+      <div style="background:#fff;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);">
+        <h2 style="font-size:1.2rem;font-weight:600;margin-bottom:1rem;">Mover pedido a otra mesa</h2>
+        <div id="mesas-disponibles-list" style="display:flex;flex-wrap:wrap;gap:0.7rem 0.7rem;margin-bottom:1.5rem;"></div>
+        <div style="display:flex;gap:1rem;justify-content:flex-end;">
+          <button id="cancelar-mover-mesa" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
+        </div>
+      </div>
     </div>
 
     <script>

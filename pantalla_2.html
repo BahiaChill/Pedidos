@@ -909,7 +909,11 @@
             { id: 3, label: "Mesa 3" },
             { id: 4, label: "Mesa 4" },
             { id: 5, label: "Mesa 5" },
-            { id: 6, label: "VIP" }
+            { id: 6, label: "Mesa 6" },
+            { id: 7, label: "Mesa 7" },
+            { id: 8, label: "Mesa 8" },
+            { id: 9, label: "Mesa 9" },
+            { id: 10, label: "Mesa 10" }
         ];
 
         const products = [
@@ -1038,7 +1042,12 @@
         }
 
         function getOrderTotal() {
-            return currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+            return currentOrder.reduce((sum, item) => {
+                if (item && item.product && typeof item.product.price === 'number' && typeof item.quantity === 'number') {
+                    return sum + item.product.price * item.quantity;
+                }
+                return sum;
+            }, 0);
         }
         function filterProducts() {
             const searchTerm = productSearch.value.toLowerCase().trim();
@@ -1182,7 +1191,7 @@
 
         // Update order summary
         function updateOrderSummary() {
-            if (currentOrder.length === 0) {
+            if (!Array.isArray(currentOrder) || currentOrder.length === 0) {
                 orderItems.innerHTML = '<div class="text-center text-gray-500 py-4">No hay productos agregados</div>';
                 totalSpan.textContent = '$0';
                 finalizeOrderBtn.disabled = true;
@@ -1201,6 +1210,7 @@
             }
 
             currentOrder.forEach((item, index) => {
+                if (!item || !item.product || typeof item.product.price !== 'number' || typeof item.quantity !== 'number') return;
                 const itemTotal = item.product.price * item.quantity;
                 total += itemTotal;
 
@@ -1226,32 +1236,35 @@
                         </button>
                     </div>
                 `;
-                
                 // Add event listener to edit button
                 const editBtn = orderItem.querySelector('.edit-item');
                 editBtn.addEventListener('click', (e) => {
                     const index = parseInt(editBtn.dataset.index);
                     editOrderItem(index);
                 });
-                
                 // Add event listener to delete button
                 const deleteBtn = orderItem.querySelector('.delete-item');
                 deleteBtn.addEventListener('click', (e) => {
                     const index = parseInt(deleteBtn.dataset.index);
                     deleteOrderItem(index);
                 });
-                
                 orderItems.appendChild(orderItem);
             });
-            
             totalSpan.textContent = `$${total.toLocaleString()}`;
-            
             // Add pulse animation to total
             totalSpan.classList.add('pulse');
             setTimeout(() => {
                 totalSpan.classList.remove('pulse');
             }, 500);
         }
+// Definir getMesasDisponiblesParaMover para evitar error JS en mover mesa
+function getMesasDisponiblesParaMover() {
+    // Devuelve las mesas (1-10) que no son la actual y no tienen pedido activo
+    const mesas = [1,2,3,4,5,6,7,8,9,10];
+    if (!currentMesaId) return mesas;
+    const state = getMesasState();
+    return mesas.filter(mesaId => String(mesaId) !== String(currentMesaId) && (!state[mesaId] || !state[mesaId].pedido || !state[mesaId].pedido.items || state[mesaId].pedido.items.length === 0));
+}
 
         // Edit order item
         function editOrderItem(index) {

@@ -748,6 +748,7 @@
       const totalSpan = document.getElementById('total');
       if (totalSpan) totalSpan.textContent = `$${pedido.total}`;
     }
+    // No se cargan datos de cliente
   }
 </script>
 </head>
@@ -817,12 +818,12 @@
                                 <span id="total">$0</span>
                             </div>
                         </div>
-                        <!-- Action Buttons -->
+                        <!-- Datos de cliente eliminados -->
                         <div class="mt-6 space-y-2">
                             <button id="clear-order-btn" class="w-full py-2 px-4 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition duration-200">
                                 Limpiar Pedido
                             </button>
-                            <button id="finalize-order-btn" class="w-full py-2 px-4 btn-primary rounded-md font-medium text-white hover:bg-opacity-90 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <button id="finalize-order-btn" class="w-full py-2 px-4 btn-primary rounded-md font-medium text-white hover:bg-opacity-90 transition duration-200">
                                 <span id="finalize-text">Finalizar Pedido</span>
                             </button>
                         </div>
@@ -884,61 +885,10 @@
     </div>
 
     <!-- Receipt Modal (Hidden by default) -->
-    <div id="receipt-modal" class="receipt-modal hidden">
-        <div class="receipt-content">
-            <div class="receipt-header text-center">
-                <h1 class="text-2xl font-bold">BAHIA CHILL</h1>
-                <p class="text-sm opacity-90">Comanda Digital</p>
-            </div>
-            
-            <div class="p-6" id="receipt-content">
-                <!-- Receipt content will be inserted here -->
-            </div>
-            
-            <div class="receipt-footer">
-                <p class="text-sm text-gray-600">Gracias por su visita. ¡Vuelva pronto!</p>
-            </div>
-            
-            <div class="p-4 border-t border-gray-200 flex justify-between no-print">
-                <button id="print-receipt-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
-                    <i class="fas fa-print mr-2"></i>Imprimir
-                </button>
-                <button id="close-receipt-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center">
-                    <i class="fas fa-times mr-2"></i>
-                    <span class="hidden sm:inline">Cerrar</span>
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Modal de recibo eliminado -->
 
     <!-- Device Selection Modal (Hidden by default) -->
-    <div id="device-modal" class="device-modal hidden">
-        <div class="device-content fade-in">
-            <h2 class="text-lg font-semibold mb-4 text-center">¿Desde qué dispositivo estás descargando?</h2>
-            
-            <div class="mb-4">
-                <div class="device-option" data-device="mobile">
-                    <i class="fas fa-mobile-alt"></i>
-                    <div class="device-option-text">
-                        <div class="device-option-title">Celular</div>
-                        <div class="device-option-desc">Optimizado para pantallas verticales</div>
-                    </div>
-                </div>
-                
-                <div class="device-option" data-device="desktop">
-                    <i class="fas fa-desktop"></i>
-                    <div class="device-option-text">
-                        <div class="device-option-title">Computador</div>
-                        <div class="device-option-desc">Formato estándar horizontal</div>
-                    </div>
-                </div>
-            </div>
-            
-            <button id="cancel-device-btn" class="w-full py-2 px-4 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition duration-200">
-                Cancelar
-            </button>
-        </div>
-    </div>
+    <!-- Modal de selección de dispositivo eliminado -->
 
     <!-- Modal para mover mesa -->
     <div id="modal-mover-mesa" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
@@ -1014,7 +964,6 @@
 
         // DOM Elements
         const appScreen = document.getElementById('app-screen');
-        // const tableSelect = document.getElementById('table-select');
         const currentTableSpan = document.getElementById('current-table');
         const productsGrid = document.getElementById('products-grid');
         const productSearch = document.getElementById('product-search');
@@ -1024,7 +973,6 @@
         const clearOrderBtn = document.getElementById('clear-order-btn');
         const finalizeOrderBtn = document.getElementById('finalize-order-btn');
         const finalizeText = document.getElementById('finalize-text');
-        const finalizeSpinner = document.getElementById('finalize-spinner');
         const productModal = document.getElementById('product-modal');
         const modalProductName = document.getElementById('modal-product-name');
         const modalProductPrice = document.getElementById('modal-product-price');
@@ -1037,13 +985,6 @@
         const addToOrderBtn = document.getElementById('add-to-order-btn');
         const addToOrderText = document.getElementById('add-to-order-text');
         const addToOrderSpinner = document.getElementById('add-to-order-spinner');
-        const receiptModal = document.getElementById('receipt-modal');
-        const receiptContent = document.getElementById('receipt-content');
-        const printReceiptBtn = document.getElementById('print-receipt-btn');
-        const closeReceiptBtn = document.getElementById('close-receipt-btn');
-        const deviceModal = document.getElementById('device-modal');
-        const deviceOptions = document.querySelectorAll('.device-option');
-        const cancelDeviceBtn = document.getElementById('cancel-device-btn');
 
         // Initialize the app
         function init() {
@@ -1054,7 +995,6 @@
                     window.location.href = 'index.html';
                 });
             }
-            // Botón mover mesa (lógica futura)
             // Obtener el número de mesa de la URL
             const params = new URLSearchParams(window.location.search);
             const mesa = params.get('mesa');
@@ -1068,31 +1008,26 @@
             // Event listeners
             productSearch.addEventListener('input', filterProducts);
             clearOrderBtn.addEventListener('click', clearOrder);
-            finalizeOrderBtn.addEventListener('click', showReceipt);
+            finalizeOrderBtn.addEventListener('click', function() {
+                if (!currentTable || currentOrder.length === 0) {
+                    alert('No hay productos en el pedido o no hay mesa seleccionada.');
+                    return;
+                }
+                // Guardar el pedido en localStorage
+                savePedidoMesa(currentTable.id, { items: currentOrder, total: getOrderTotal() });
+                alert('Pedido guardado correctamente.');
+            });
             closeModalBtn.addEventListener('click', closeModal);
             cancelModalBtn.addEventListener('click', closeModal);
             decrementQuantity.addEventListener('click', () => adjustQuantity(-1));
             incrementQuantity.addEventListener('click', () => adjustQuantity(1));
             addToOrderBtn.addEventListener('click', addToOrder);
-            printReceiptBtn.addEventListener('click', printReceipt);
-            // Device selection
-            deviceOptions.forEach(option => {
-                option.addEventListener('click', () => {
-                    downloadReceipt();
-                });
-            });
-            cancelDeviceBtn.addEventListener('click', () => {
-                deviceModal.classList.add('hidden');
-            });
-            // Prevent quantity input from going below 1
             productQuantity.addEventListener('change', () => {
                 if (productQuantity.value < 1) { productQuantity.value = 1; }
             });
             // Close modals when clicking outside
             document.addEventListener('click', (e) => {
                 if (e.target === productModal) { productModal.classList.add('hidden'); }
-                if (e.target === receiptModal) { receiptModal.classList.add('hidden'); }
-                if (e.target === deviceModal) { deviceModal.classList.add('hidden'); }
             });
             // Close search results when clicking outside
             document.addEventListener('click', (e) => {
@@ -1102,29 +1037,31 @@
             });
         }
 
-
-
-        // Filter products by search term
+        function getOrderTotal() {
+            return currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+        }
         function filterProducts() {
             const searchTerm = productSearch.value.toLowerCase().trim();
-            
             if (searchTerm.length === 0) {
+                searchResults.innerHTML = '';
                 searchResults.classList.add('hidden');
                 return;
             }
-            
+            if (!Array.isArray(products) || products.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-item text-gray-500">No hay productos disponibles</div>';
+                searchResults.classList.remove('hidden');
+                return;
+            }
             const filteredProducts = products.filter(product => 
-                product.name.toLowerCase().includes(searchTerm)
+                product.name && product.name.toLowerCase().includes(searchTerm)
             );
-            
             showSearchResults(filteredProducts, searchTerm);
         }
 
         // Show search results in dropdown
         function showSearchResults(filteredProducts, searchTerm) {
             searchResults.innerHTML = '';
-            
-            if (filteredProducts.length === 0) {
+            if (!Array.isArray(filteredProducts) || filteredProducts.length === 0) {
                 searchResults.innerHTML = `
                     <div class="search-result-item text-gray-500">
                         No se encontraron productos
@@ -1133,31 +1070,25 @@
                 searchResults.classList.remove('hidden');
                 return;
             }
-            
             filteredProducts.forEach(product => {
                 const resultItem = document.createElement('div');
                 resultItem.className = 'search-result-item';
-                
                 // Highlight search term in product name
-                const regex = new RegExp(searchTerm, 'gi');
+                const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
                 const displayName = product.name.replace(regex, match => `<span class="highlight">${match}</span>`);
-                
                 resultItem.innerHTML = `
                     <div class="flex justify-between">
                         <span>${displayName}</span>
                         <span class="text-primary font-medium">$${product.price.toLocaleString()}</span>
                     </div>
                 `;
-                
                 resultItem.addEventListener('click', () => {
                     openProductModal(product);
                     productSearch.value = '';
                     searchResults.classList.add('hidden');
                 });
-                
                 searchResults.appendChild(resultItem);
             });
-            
             searchResults.classList.remove('hidden');
         }
 
@@ -1393,43 +1324,424 @@
             }
         }
 
-        // Función para cargar el pedido en la UI (sin datos de cliente ni recibo)
-function cargarPedidoEnUI(pedido) {
-    if (pedido.items && Array.isArray(pedido.items)) {
-      const orderItemsDiv = document.getElementById('order-items');
-      orderItemsDiv.innerHTML = '';
-      pedido.items.forEach(item => {
-        if (!item) return;
-        const nombre = item.nombre || item.name || 'Producto';
-        const cantidad = item.cantidad || item.qty || 1;
-        const div = document.createElement('div');
-        div.className = 'flex justify-between items-center py-2 border-b';
-        div.innerHTML = `<span>${nombre}</span><span>x${cantidad}</span>`;
-        orderItemsDiv.appendChild(div);
-      });
-      if (pedido.items.length === 0) {
-        orderItemsDiv.innerHTML = '<div class="text-center text-gray-500 py-4">No hay productos agregados</div>';
-      }
+        // Show receipt
+        function showReceipt(paymentMethod = null) {
+            if (currentOrder.length === 0) {
+                alert('No hay productos en el pedido');
+                return;
+            }
+            
+            if (!currentTable) {
+                alert('Por favor seleccione una mesa');
+                return;
+            }
+            
+            // Mostrar estado de carga
+            finalizeText.classList.add('hidden');
+            finalizeSpinner.classList.remove('hidden');
+            
+            // Simular retraso de procesamiento
+            setTimeout(() => {
+                let subtotal = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+                let total = subtotal - (currentOrderDiscount?.amount || 0);
+                const now = new Date();
+                const formattedDate = now.toLocaleDateString('es-CO', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                });
+                
+                const formattedTime = now.toLocaleTimeString('es-CO', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).toUpperCase();
+                
+                receiptContent.innerHTML = `
+                    <div class="receipt-container">
+                        <div class="receipt-header">
+                            <h1 class="receipt-title">BAHIA CHILL</h1>
+                            <div class="receipt-subheader">
+                                <p class="company-info">Bahia Chill S.A.S | NIT: 123456789-0</p>
+                                <p class="company-info" style="font-size: 12px;">Calle 12, #45-67 Avenida Universitaria, Tunja</p>
+                                <p class="company-info" style="font-size: 12px;">Tel: 3012345678 | bahiachillcafebar@gmail.com</p>
+                                <p class="company-info" style="font-size: 12px;">Resolución Dian 1234567890 del 12/34/5678</p>
+                                <p class="company-info" style="font-size: 12px;">Régimen Simple de Tributación</p>
+                            </div>
+                            <div class="receipt-meta">
+                                <p>${formattedDate} - ${formattedTime}</p>
+                                <p><span class="font-medium">Mesa:</span> ${currentTable.label}</p>
+                                <p><span class="font-medium">Atendido por:</span> ${currentUser.username}</p>
+                            </div>
+                        </div>
+                                            
+                        <table class="w-full mb-4">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-2 text-sm font-medium">Producto</th>
+                                    <th class="text-right py-2 text-sm font-medium">Precio Unitario</th>
+                                    <th class="text-right py-2 text-sm font-medium">Cant.</th>
+                                    <th class="text-right py-2 text-sm font-medium">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${currentOrder.map(item => {
+                                    const itemTotal = item.product.price * item.quantity;
+                                    return `
+                                        <tr>
+                                            <td class="text-left py-2 text-sm">${item.product.name}</td>
+                                            <td class="text-right py-2 text-sm">$${item.product.price.toLocaleString()}</td>
+                                            <td class="text-right py-2 text-sm">${item.quantity}</td>
+                                            <td class="text-right py-2 text-sm">$${itemTotal.toLocaleString()}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                        
+                        <div class="border-t border-gray-200 pt-3">
+                            <div class="flex justify-between font-semibold text-lg">
+                                <span>Subtotal:</span>
+                                <span>$${subtotal.toLocaleString('es-CO')}</span>
+                            </div>
+                        </div>
+                        
+                        ${currentOrderDiscount ? `
+                        <div class="border-t border-gray-200 pt-3">
+                            <div class="flex justify-between font-semibold text-lg">
+                                <span>Descuento:</span>
+                                <span>-$${currentOrderDiscount.amount.toLocaleString('es-CO')}</span>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="border-t border-gray-200 pt-3">
+                            <div class="flex justify-between font-semibold text-lg">
+                                <span>Total:</span>
+                                <span>$${total.toLocaleString('es-CO')}</span>
+                            </div>
+                        </div>
+                                                
+                        ${paymentMethod ? `
+                        <div class="mt-4 text-sm text-gray-700">
+                            <p><strong>Medio de Pago:</strong> ${paymentMethod}</p>
+                        </div>
+                        ` : ''}
+
+                        ${(customerName.value || customerId.value || customerContact.value) ? `
+                        <div class="mt-6 border-t border-gray-200 pt-4">
+                            <h2 class="text-lg font-semibold mb-2">Datos del Cliente</h2>
+                            ${customerName.value ? `<p class="text-sm mb-1"><span class="font-medium">Nombre:</span> ${customerName.value}</p>` : ''}
+                            ${customerId.value ? `<p class="text-sm mb-1"><span class="font-medium">${customerIdType.options[customerIdType.selectedIndex].text}:</span> ${customerId.value}</p>` : ''}
+                            ${customerContact.value ? `<p class="text-sm"><span class="font-medium">Contacto:</span> ${customerContact.value}</p>` : ''}
+                        </div>
+                        ` : ''}
+                        
+                        <div class="receipt-footer">
+                            <p class="footer-text"><strong>Sistema de facturación de Bahia Chill ®</strong><br><strong>Todos los derechos reservados</strong></p>
+                        </div>
+                    </div>
+                `;
+                
+                // Mostrar el modal del recibo
+                receiptModal.classList.remove('hidden');
+                
+                // Ocultar estado de carga
+                finalizeText.classList.remove('hidden');
+                finalizeSpinner.classList.add('hidden');
+            }, 800);
+        }
+        
+        // Show device selection
+        function showDeviceSelection() {
+            deviceModal.classList.remove('hidden');
+            selectedDevice = null;
+        }
+
+        // Print receipt
+        function printReceipt() {
+            window.print();
+        }
+
+        // Agregar un menú desplegable para seleccionar el medio de pago
+
+// Crear el botón "Descuento"
+const discountButton = document.createElement('button');
+discountButton.textContent = 'Descuento';
+discountButton.className = 'bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mb-4';
+discountButton.addEventListener('click', showDiscount);
+
+// Insertar el botón "Descuento" encima de "Limpiar Pedido"
+const clearOrderButton = document.querySelector('#clear-order-btn');
+clearOrderButton.parentNode.insertBefore(discountButton, clearOrderButton);
+
+// Crear el botón "Eliminar"
+const removeDiscountButton = document.createElement('button');
+removeDiscountButton.textContent = 'Eliminar';
+removeDiscountButton.className = 'ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200';
+removeDiscountButton.id = 'remove-discount-btn';
+
+// Insertar el botón "Eliminar" junto a "Descuento"
+clearOrderButton.parentNode.insertBefore(removeDiscountButton, clearOrderButton);
+
+// Evento para eliminar el descuento aplicado
+removeDiscountButton.addEventListener('click', () => {
+    currentOrderDiscount = null;
+    const discountElement = document.getElementById('discount-summary');
+    if (discountElement) discountElement.innerHTML = '';
+    updateOrderSummary();
+});
+
+// Ajusté la función de descuento para que se guíe exclusivamente por el valor en $ y el % se adapte automáticamente con decimales.
+function showDiscount() {
+    // Crear el modal de descuento
+    const discountModal = document.createElement('div');
+    discountModal.id = 'discount-modal';
+    discountModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+
+    discountModal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-lg p-6 w-96">
+            <h2 class="text-lg font-bold mb-4">Aplicar Descuento</h2>
+            <label for="discount-reason" class="block text-sm font-medium text-gray-700 mb-2">Motivo del descuento</label>
+            <textarea id="discount-reason" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" rows="3" required></textarea>
+
+            <label for="discount-amount" class="block text-sm font-medium text-gray-700 mb-2">Descuento en $</label>
+            <input id="discount-amount" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="$">
+
+            <label for="discount-percentage" class="block text-sm font-medium text-gray-700 mb-2">Descuento en %</label>
+            <input id="discount-percentage" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="%">
+
+            <div class="flex justify-end space-x-4">
+                <button id="apply-discount-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Aplicar</button>
+                <button id="cancel-discount-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(discountModal);
+
+                         // Sincronizar los campos de cantidad y porcentaje
+    const discountAmountInput = document.getElementById('discount-amount');
+    const discountPercentageInput = document.getElementById('discount-percentage');
+
+    discountPercentageInput.addEventListener('input', () => {
+        const rawValue = discountPercentageInput.value.replace(/[^0-9.]/g, '');
+        const percentage = parseFloat(rawValue);
+        if (!isNaN(percentage)) {
+            const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+            const amount = (percentage / 100) * total;
+
+            // Actualizar el monto en $
+            discountAmountInput.value = Math.round(amount).toLocaleString('es-CO');
+        } else {
+            // Limpiar el campo de monto si el porcentaje no es válido
+            discountAmountInput.value = '';
+        }
+    });
+
+    discountAmountInput.addEventListener('input', () => {
+        const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
+        const amount = parseFloat(rawValue);
+        if (!isNaN(amount)) {
+            const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+            const percentage = (amount / total) * 100;
+
+            // Actualizar el porcentaje sin modificar el formato del usuario
+            discountPercentageInput.value = percentage.toFixed(2);
+
+            // Formatear automáticamente con puntos
+            discountAmountInput.value = amount.toLocaleString('es-CO');
+        } else {
+            // Limpiar el campo de porcentaje si el monto no es válido
+            discountPercentageInput.value = '';
+        }
+    });
+
+    // Manejar el botón "Cancelar"
+    const cancelDiscountButton = document.getElementById('cancel-discount-btn');
+    cancelDiscountButton.addEventListener('click', () => {
+        document.body.removeChild(discountModal);
+    });
+
+    // Manejar el botón "Aplicar"
+    const applyDiscountButton = document.getElementById('apply-discount-btn');
+    applyDiscountButton.addEventListener('click', () => {
+        const reason = document.getElementById('discount-reason').value.trim();
+        const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
+        const amount = parseFloat(rawValue);
+
+        if (!reason) {
+            alert('El motivo del descuento es obligatorio.');
+            return;
+        }
+
+        if (isNaN(amount) || amount <= 0) {
+            alert('Por favor ingrese un valor de descuento válido en $.');
+            return;
+        }
+
+        const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+        if (amount > total) {
+            alert('El descuento no puede ser mayor que el total de la factura.');
+            return;
+        }
+
+        // Actualizar el resumen del pedido
+        const discountedTotal = total - amount;
+        totalSpan.textContent = `$${discountedTotal.toLocaleString('es-CO')}`;
+
+        // Guardar el descuento para usarlo en showReceipt y en el resumen
+        currentOrderDiscount = {
+            reason,
+            amount
+        };
+
+        // Mostrar el descuento en el resumen del pedido
+        const discountSummary = document.getElementById('discount-summary');
+        if (!discountSummary) {
+            const discountElement = document.createElement('div');
+            discountElement.id = 'discount-summary';
+            discountElement.className = 'text-sm text-gray-700 mt-2';
+            discountElement.innerHTML = `<p><strong>Descuento:</strong> -$${amount.toLocaleString('es-CO')} (${reason})</p>`;
+            totalSpan.parentNode.insertBefore(discountElement, totalSpan);
+        } else {
+            discountSummary.innerHTML = `<p><strong>Descuento:</strong> -$${amount.toLocaleString('es-CO')} (${reason})</p>`;
+        }
+
+        document.body.removeChild(discountModal);
+    });
+}
+
+// Modifiqué showReceipt para incluir el descuento en el recibo
+function showReceipt(paymentMethod = null) {
+    if (currentOrder.length === 0) {
+        alert('No hay productos en el pedido');
+        return;
     }
-    if (typeof pedido.total !== 'undefined') {
-      const totalSpan = document.getElementById('total');
-      if (totalSpan) totalSpan.textContent = `$${pedido.total}`;
+
+    if (!currentTable) {
+        alert('Por favor seleccione una mesa');
+        return;
     }
+
+    // Mostrar estado de carga
+    finalizeText.classList.add('hidden');
+    finalizeSpinner.classList.remove('hidden');
+
+    // Simular retraso de procesamiento
+    setTimeout(() => {
+        let subtotal = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+        let total = subtotal - (currentOrderDiscount?.amount || 0);
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('es-CO', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        const formattedTime = now.toLocaleTimeString('es-CO', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).toUpperCase();
+
+        receiptContent.innerHTML = `
+            <div class="receipt-container">
+                <div class="receipt-header">
+                    <h1 class="receipt-title">BAHIA CHILL</h1>
+                    <div class="receipt-subheader">
+                        <p class="company-info">Bahia Chill S.A.S | NIT: 123456789-0</p>
+                        <p class="company-info" style="font-size: 12px;">Calle 12, #45-67 Avenida Universitaria, Tunja</p>
+                        <p class="company-info" style="font-size: 12px;">Tel: 3012345678 | bahiachillcafebar@gmail.com</p>
+                        <p class="company-info" style="font-size: 12px;">Resolución Dian 1234567890 del 12/34/5678</p>
+                        <p class="company-info" style="font-size: 12px;">Régimen Simple de Tributación</p>
+                    </div>
+                    <div class="receipt-meta">
+                        <p>${formattedDate} - ${formattedTime}</p>
+                        <p><span class="font-medium">Mesa:</span> ${currentTable.label}</p>
+                        <p><span class="font-medium">Atendido por:</span> ${currentUser.username}</p>
+                    </div>
+                </div>
+                
+                <table class="w-full mb-4">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-2 text-sm font-medium">Producto</th>
+                            <th class="text-right py-2 text-sm font-medium">Precio Unitario</th>
+                            <th class="text-right py-2 text-sm font-medium">Cant.</th>
+                            <th class="text-right py-2 text-sm font-medium">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${currentOrder.map(item => {
+                            const itemTotal = item.product.price * item.quantity;
+                            return `
+                                <tr>
+                                    <td class="text-left py-2 text-sm">${item.product.name}</td>
+                                    <td class="text-right py-2 text-sm">$${item.product.price.toLocaleString()}</td>
+                                    <td class="text-right py-2 text-sm">${item.quantity}</td>
+                                    <td class="text-right py-2 text-sm">$${itemTotal.toLocaleString()}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+                
+                <div class="border-t border-gray-200 pt-3">
+                    <div class="flex justify-between font-semibold text-lg">
+                        <span>Subtotal:</span>
+                        <span>$${subtotal.toLocaleString('es-CO')}</span>
+                    </div>
+                </div>
+                
+                ${currentOrderDiscount ? `
+                <div class="border-t border-gray-200 pt-3">
+                    <div class="flex justify-between font-semibold text-lg">
+                        <span>Descuento:</span>
+                        <span>-$${currentOrderDiscount.amount.toLocaleString('es-CO')}</span>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="border-t border-gray-200 pt-3">
+                    <div class="flex justify-between font-semibold text-lg">
+                        <span>Total:</span>
+                        <span>$${total.toLocaleString('es-CO')}</span>
+                    </div>
+                </div>
+                
+                ${paymentMethod ? `
+                <div class="mt-4 text-sm text-gray-700">
+                    <p><strong>Medio de Pago:</strong> ${paymentMethod}</p>
+                </div>
+                ` : ''}
+
+                ${(customerName.value || customerId.value || customerContact.value) ? `
+                <div class="mt-6 border-t border-gray-200 pt-4">
+                    <h2 class="text-lg font-semibold mb-2">Datos del Cliente</h2>
+                    ${customerName.value ? `<p class="text-sm mb-1"><span class="font-medium">Nombre:</span> ${customerName.value}</p>` : ''}
+                    ${customerId.value ? `<p class="text-sm mb-1"><span class="font-medium">${customerIdType.options[customerIdType.selectedIndex].text}:</span> ${customerId.value}</p>` : ''}
+                    ${customerContact.value ? `<p class="text-sm"><span class="font-medium">Contacto:</span> ${customerContact.value}</p>` : ''}
+                </div>
+                ` : ''}
+                
+                <div class="receipt-footer">
+                    <p class="footer-text"><strong>Sistema de facturación de Bahia Chill ®</strong><br><strong>Todos los derechos reservados</strong></p>
+                </div>
+            </div>
+        `;
+        
+        // Mostrar el modal del recibo
+        receiptModal.classList.remove('hidden');
+        
+        // Ocultar estado de carga
+        finalizeText.classList.remove('hidden');
+        finalizeSpinner.classList.add('hidden');
+    }, 800);
 }
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', init);
-
-document.addEventListener('DOMContentLoaded', function() {
-  const finalizeBtn = document.getElementById('finalize-order-btn');
-  if (finalizeBtn) {
-    finalizeBtn.addEventListener('click', function() {
-      if (currentMesaId && currentPedido && currentPedido.items && currentPedido.items.length > 0) {
-        savePedidoMesa(currentMesaId, currentPedido);
-        alert('Pedido guardado correctamente.');
-      } else {
-        alert('No hay productos en el pedido.');
-      }
-    });
-  }
-});
+    </script>
+</body>
+</html>

@@ -70,7 +70,17 @@
         gap: 10px;
       }
     }
-  </style>
+</style>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.mesa').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const numeroMesa = btn.textContent.trim();
+        window.location.href = `pantalla_2.html?mesa=${numeroMesa}`;
+      });
+    });
+  });
+</script>
 </head>
 <body>
   <div class="mesas-container">

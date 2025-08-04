@@ -1383,8 +1383,12 @@ function getMesasDisponiblesParaMover() {
                             </div>
                             <div class="receipt-meta">
                                 <p>${formattedDate} - ${formattedTime}</p>
-                                <p><span class="font-medium">Mesa:</span> ${currentTable.label}</p>
-                                <p><span class="font-medium">Atendido por:</span> ${currentUser.username}</p>
+                                <div>
+                                    <div>
+                                        <p><span class="font-medium">Mesa:</span> ${currentTable.label}</p>
+                                        <p><span class="font-medium">Atendido por:</span> ${currentUser.username}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                                             
@@ -1425,9 +1429,8 @@ function getMesasDisponiblesParaMover() {
                                 <span>Descuento:</span>
                                 <span>-$${currentOrderDiscount.amount.toLocaleString('es-CO')}</span>
                             </div>
-                        </div>
                         ` : ''}
-
+        
                         <div class="border-t border-gray-200 pt-3">
                             <div class="flex justify-between font-semibold text-lg">
                                 <span>Total:</span>
@@ -1478,15 +1481,19 @@ function getMesasDisponiblesParaMover() {
 
         // Agregar un menú desplegable para seleccionar el medio de pago
 
+
 // Crear el botón "Descuento"
 const discountButton = document.createElement('button');
 discountButton.textContent = 'Descuento';
 discountButton.className = 'bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mb-4';
 discountButton.addEventListener('click', showDiscount);
 
-// Insertar el botón "Descuento" encima de "Limpiar Pedido"
-const clearOrderButton = document.querySelector('#clear-order-btn');
-clearOrderButton.parentNode.insertBefore(discountButton, clearOrderButton);
+// Crear el botón "Abono"
+const abonoButton = document.createElement('button');
+abonoButton.textContent = 'Abono';
+abonoButton.className = 'px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition duration-200 font-bold';
+abonoButton.id = 'abono-btn';
+abonoButton.addEventListener('click', showAbonoModal);
 
 // Crear el botón "Eliminar"
 const removeDiscountButton = document.createElement('button');
@@ -1494,7 +1501,10 @@ removeDiscountButton.textContent = 'Eliminar';
 removeDiscountButton.className = 'ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200';
 removeDiscountButton.id = 'remove-discount-btn';
 
-// Insertar el botón "Eliminar" junto a "Descuento"
+// Insertar los botones en el orden: Abono, Descuento, Eliminar
+const clearOrderButton = document.querySelector('#clear-order-btn');
+clearOrderButton.parentNode.insertBefore(abonoButton, clearOrderButton);
+clearOrderButton.parentNode.insertBefore(discountButton, clearOrderButton);
 clearOrderButton.parentNode.insertBefore(removeDiscountButton, clearOrderButton);
 
 // Evento para eliminar el descuento aplicado
@@ -1504,6 +1514,64 @@ removeDiscountButton.addEventListener('click', () => {
     if (discountElement) discountElement.innerHTML = '';
     updateOrderSummary();
 });
+
+// Modal de abono
+function showAbonoModal() {
+    const abonoModal = document.createElement('div');
+    abonoModal.id = 'abono-modal';
+    abonoModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    abonoModal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-lg p-6 w-96">
+            <h2 class="text-lg font-bold mb-4">Registrar Abono</h2>
+            <label for="abono-amount" class="block text-sm font-medium text-gray-700 mb-2">¿Cuánto han abonado?</label>
+            <input id="abono-amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="$" required>
+            <div class="flex justify-end space-x-4">
+                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Aplicar</button>
+                <button id="cancel-abono-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(abonoModal);
+
+    // Cancelar
+    document.getElementById('cancel-abono-btn').addEventListener('click', () => {
+        document.body.removeChild(abonoModal);
+    });
+
+    // Aplicar abono
+    document.getElementById('apply-abono-btn').addEventListener('click', () => {
+        const abonoValue = parseFloat(document.getElementById('abono-amount').value);
+        if (isNaN(abonoValue) || abonoValue < 0) {
+            alert('Por favor ingrese un valor de abono válido.');
+            return;
+        }
+        // Guardar abono en el pedido actual
+        if (!currentTable || !Array.isArray(currentOrder)) {
+            alert('No hay pedido activo.');
+            return;
+        }
+        // Guardar en localStorage
+        const total = getOrderTotal();
+        savePedidoMesa(currentTable.id, { items: currentOrder, total: total, abono: abonoValue });
+        // Mostrar abono en el resumen
+        showAbonoSummary(abonoValue);
+        updateOrderSummary();
+        document.body.removeChild(abonoModal);
+        alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
+    });
+}
+
+// Mostrar abono en el resumen del pedido
+function showAbonoSummary(abonoValue) {
+    let abonoSummary = document.getElementById('abono-summary');
+    if (!abonoSummary) {
+        abonoSummary = document.createElement('div');
+        abonoSummary.id = 'abono-summary';
+        abonoSummary.className = 'text-sm text-yellow-700 mt-2';
+        totalSpan.parentNode.insertBefore(abonoSummary, totalSpan.nextSibling);
+    }
+    abonoSummary.innerHTML = `<p><strong>Abono:</strong> -$${abonoValue.toLocaleString('es-CO')}</p>`;
+}
 
 // Ajusté la función de descuento para que se guíe exclusivamente por el valor en $ y el % se adapte automáticamente con decimales.
 function showDiscount() {
@@ -1524,8 +1592,9 @@ function showDiscount() {
             <label for="discount-percentage" class="block text-sm font-medium text-gray-700 mb-2">Descuento en %</label>
             <input id="discount-percentage" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="%">
 
-            <div class="flex justify-end space-x-4">
-                <button id="apply-discount-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Aplicar</button>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button id="apply-discount-total-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Aplicar a total</button>
+                <button id="apply-discount-product-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded">Aplicar a referencia de producto</button>
                 <button id="cancel-discount-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
             </div>
         </div>
@@ -1605,152 +1674,26 @@ function showDiscount() {
 
         // Guardar el descuento para usarlo en showReceipt y en el resumen
         currentOrderDiscount = {
-            reason,
-            amount
+            amount: amount,
+            reason: reason
         };
 
-        // Mostrar el descuento en el resumen del pedido
-        const discountSummary = document.getElementById('discount-summary');
-        if (!discountSummary) {
-            const discountElement = document.createElement('div');
+        // Mostrar resumen del descuento en la UI
+        let discountElement = document.getElementById('discount-summary');
+        if (!discountElement) {
+            discountElement = document.createElement('div');
             discountElement.id = 'discount-summary';
-            discountElement.className = 'text-sm text-gray-700 mt-2';
-            discountElement.innerHTML = `<p><strong>Descuento:</strong> -$${amount.toLocaleString('es-CO')} (${reason})</p>`;
-            totalSpan.parentNode.insertBefore(discountElement, totalSpan);
-        } else {
-            discountSummary.innerHTML = `<p><strong>Descuento:</strong> -$${amount.toLocaleString('es-CO')} (${reason})</p>`;
+            discountElement.className = 'text-sm text-blue-700 mt-2';
+            totalSpan.parentNode.insertBefore(discountElement, totalSpan.nextSibling);
         }
+        discountElement.innerHTML = `<p><strong>Descuento:</strong> -$${amount.toLocaleString('es-CO')}<br><span class="italic">${reason}</span></p>`;
 
+        updateOrderSummary();
+
+        // Cerrar el modal de descuento
         document.body.removeChild(discountModal);
     });
-}
 
-// Modifiqué showReceipt para incluir el descuento en el recibo
-function showReceipt(paymentMethod = null) {
-    if (currentOrder.length === 0) {
-        alert('No hay productos en el pedido');
-        return;
-    }
-
-    if (!currentTable) {
-        alert('Por favor seleccione una mesa');
-        return;
-    }
-
-    // Mostrar estado de carga
-    finalizeText.classList.add('hidden');
-    finalizeSpinner.classList.remove('hidden');
-
-    // Simular retraso de procesamiento
-    setTimeout(() => {
-        let subtotal = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-        let total = subtotal - (currentOrderDiscount?.amount || 0);
-        const now = new Date();
-        const formattedDate = now.toLocaleDateString('es-CO', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-
-        const formattedTime = now.toLocaleTimeString('es-CO', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }).toUpperCase();
-
-        receiptContent.innerHTML = `
-            <div class="receipt-container">
-                <div class="receipt-header">
-                    <h1 class="receipt-title">BAHIA CHILL</h1>
-                    <div class="receipt-subheader">
-                        <p class="company-info">Bahia Chill S.A.S | NIT: 123456789-0</p>
-                        <p class="company-info" style="font-size: 12px;">Calle 12, #45-67 Avenida Universitaria, Tunja</p>
-                        <p class="company-info" style="font-size: 12px;">Tel: 3012345678 | bahiachillcafebar@gmail.com</p>
-                        <p class="company-info" style="font-size: 12px;">Resolución Dian 1234567890 del 12/34/5678</p>
-                        <p class="company-info" style="font-size: 12px;">Régimen Simple de Tributación</p>
-                    </div>
-                    <div class="receipt-meta">
-                        <p>${formattedDate} - ${formattedTime}</p>
-                        <p><span class="font-medium">Mesa:</span> ${currentTable.label}</p>
-                        <p><span class="font-medium">Atendido por:</span> ${currentUser.username}</p>
-                    </div>
-                </div>
-                
-                <table class="w-full mb-4">
-                    <thead>
-                        <tr class="border-b border-gray-200">
-                            <th class="text-left py-2 text-sm font-medium">Producto</th>
-                            <th class="text-right py-2 text-sm font-medium">Precio Unitario</th>
-                            <th class="text-right py-2 text-sm font-medium">Cant.</th>
-                            <th class="text-right py-2 text-sm font-medium">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${currentOrder.map(item => {
-                            const itemTotal = item.product.price * item.quantity;
-                            return `
-                                <tr>
-                                    <td class="text-left py-2 text-sm">${item.product.name}</td>
-                                    <td class="text-right py-2 text-sm">$${item.product.price.toLocaleString()}</td>
-                                    <td class="text-right py-2 text-sm">${item.quantity}</td>
-                                    <td class="text-right py-2 text-sm">$${itemTotal.toLocaleString()}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-                
-                <div class="border-t border-gray-200 pt-3">
-                    <div class="flex justify-between font-semibold text-lg">
-                        <span>Subtotal:</span>
-                        <span>$${subtotal.toLocaleString('es-CO')}</span>
-                    </div>
-                </div>
-                
-                ${currentOrderDiscount ? `
-                <div class="border-t border-gray-200 pt-3">
-                    <div class="flex justify-between font-semibold text-lg">
-                        <span>Descuento:</span>
-                        <span>-$${currentOrderDiscount.amount.toLocaleString('es-CO')}</span>
-                    </div>
-                </div>
-                ` : ''}
-
-                <div class="border-t border-gray-200 pt-3">
-                    <div class="flex justify-between font-semibold text-lg">
-                        <span>Total:</span>
-                        <span>$${total.toLocaleString('es-CO')}</span>
-                    </div>
-                </div>
-                
-                ${paymentMethod ? `
-                <div class="mt-4 text-sm text-gray-700">
-                    <p><strong>Medio de Pago:</strong> ${paymentMethod}</p>
-                </div>
-                ` : ''}
-
-                ${(customerName.value || customerId.value || customerContact.value) ? `
-                <div class="mt-6 border-t border-gray-200 pt-4">
-                    <h2 class="text-lg font-semibold mb-2">Datos del Cliente</h2>
-                    ${customerName.value ? `<p class="text-sm mb-1"><span class="font-medium">Nombre:</span> ${customerName.value}</p>` : ''}
-                    ${customerId.value ? `<p class="text-sm mb-1"><span class="font-medium">${customerIdType.options[customerIdType.selectedIndex].text}:</span> ${customerId.value}</p>` : ''}
-                    ${customerContact.value ? `<p class="text-sm"><span class="font-medium">Contacto:</span> ${customerContact.value}</p>` : ''}
-                </div>
-                ` : ''}
-                
-                <div class="receipt-footer">
-                    <p class="footer-text"><strong>Sistema de facturación de Bahia Chill ®</strong><br><strong>Todos los derechos reservados</strong></p>
-                </div>
-            </div>
-        `;
-        
-        // Mostrar el modal del recibo
-        receiptModal.classList.remove('hidden');
-        
-        // Ocultar estado de carga
-        finalizeText.classList.remove('hidden');
-        finalizeSpinner.classList.add('hidden');
-    }, 800);
 }
 
 // Initialize the app when DOM is loaded

@@ -120,9 +120,22 @@
     const mesasState = getMesasState();
     document.querySelectorAll('.mesa').forEach(function(btn) {
       const numeroMesa = btn.getAttribute('data-mesa');
-      // Si la mesa tiene pedido, resáltala
-      if (mesasState[numeroMesa] && mesasState[numeroMesa].pedido && mesasState[numeroMesa].pedido.items && mesasState[numeroMesa].pedido.items.length > 0) {
-        btn.style.background = '#1eae60'; // Verde si tiene pedido
+      // Estado de la mesa
+      const mesaData = mesasState[numeroMesa];
+      if (mesaData && mesaData.pedido && mesaData.pedido.items && mesaData.pedido.items.length > 0) {
+        // Si hay campo "abono" y es mayor a 0 pero menor al total, color amarillo
+        if (
+          typeof mesaData.pedido.abono === 'number' &&
+          typeof mesaData.pedido.total === 'number' &&
+          mesaData.pedido.abono > 0 &&
+          mesaData.pedido.abono < mesaData.pedido.total
+        ) {
+          btn.style.background = '#ffd600'; // Amarillo si hay abono parcial
+          btn.style.color = '#333';
+        } else {
+          btn.style.background = '#1eae60'; // Verde si tiene pedido completo
+          btn.style.color = '#fff';
+        }
       }
       btn.addEventListener('click', function() {
         window.location.href = `pantalla_2.html?mesa=${numeroMesa}`;

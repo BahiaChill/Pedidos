@@ -17,18 +17,18 @@
     }
     .mesas-container {
       width: 100vw;
-      max-width: 430px;
+      max-width: 27rem;
       margin: 0 auto;
-      padding: 24px 0;
+      padding: 1.5rem 0;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 1.1rem;
     }
     .fila {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 18px;
+      gap: 1.1rem;
     }
     .fila.centro {
       justify-content: center;
@@ -37,15 +37,15 @@
       background: #0057b8;
       color: #fff;
       border-radius: 50%;
-      width: 80px;
-      height: 80px;
+      width: 5rem;
+      height: 5rem;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       font-size: 1.5rem;
       font-weight: bold;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      box-shadow: 0 0.13rem 0.5rem rgba(0,0,0,0.07);
       border: none;
       outline: none;
       transition: transform 0.1s;
@@ -58,16 +58,16 @@
     }
     @media (max-width: 400px) {
       .mesa {
-        width: 60px;
-        height: 60px;
+        width: 3.75rem;
+        height: 3.75rem;
         font-size: 1.1rem;
       }
       .mesas-container {
-        padding: 10px 0;
-        gap: 10px;
+        padding: 0.6rem 0;
+        gap: 0.6rem;
       }
       .fila {
-        gap: 10px;
+        gap: 0.6rem;
       }
     }
 </style>
@@ -85,27 +85,50 @@
 <body>
   <div class="mesas-container">
     <div class="fila">
-      <button class="mesa">8</button>
-      <button class="mesa">10</button>
+      <button class="mesa" data-mesa="8">8</button>
+      <button class="mesa" data-mesa="10">10</button>
     </div>
     <div class="fila centro">
-      <button class="mesa">9</button>
+      <button class="mesa" data-mesa="9">9</button>
     </div>
     <div class="fila">
-      <button class="mesa">6</button>
-      <button class="mesa">7</button>
+      <button class="mesa" data-mesa="6">6</button>
+      <button class="mesa" data-mesa="7">7</button>
     </div>
     <div class="fila">
-      <button class="mesa">3</button>
-      <button class="mesa">5</button>
+      <button class="mesa" data-mesa="3">3</button>
+      <button class="mesa" data-mesa="5">5</button>
     </div>
     <div class="fila centro">
-      <button class="mesa">4</button>
+      <button class="mesa" data-mesa="4">4</button>
     </div>
     <div class="fila">
-      <button class="mesa">1</button>
-      <button class="mesa">2</button>
+      <button class="mesa" data-mesa="1">1</button>
+      <button class="mesa" data-mesa="2">2</button>
     </div>
   </div>
+  <script>
+  // --- Persistencia de estado de mesas ---
+  function getMesasState() {
+    return JSON.parse(localStorage.getItem('mesas_state') || '{}');
+  }
+  function setMesasState(state) {
+    localStorage.setItem('mesas_state', JSON.stringify(state));
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const mesasState = getMesasState();
+    document.querySelectorAll('.mesa').forEach(function(btn) {
+      const numeroMesa = btn.getAttribute('data-mesa');
+      // Si la mesa tiene pedido, resáltala
+      if (mesasState[numeroMesa] && mesasState[numeroMesa].pedido && mesasState[numeroMesa].pedido.items && mesasState[numeroMesa].pedido.items.length > 0) {
+        btn.style.background = '#1eae60'; // Verde si tiene pedido
+      }
+      btn.addEventListener('click', function() {
+        window.location.href = `pantalla_2.html?mesa=${numeroMesa}`;
+      });
+    });
+  });
+  </script>
 </body>
 </html>

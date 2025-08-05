@@ -737,11 +737,20 @@
       // Cargar pedido guardado si existe
       const pedidoGuardado = getPedidoMesa(mesa);
       if (pedidoGuardado) {
-        // Asume que tienes una función para cargar el pedido al UI, si no, implementa aquí
-        cargarPedidoEnUI(pedidoGuardado);
+        // Cargar todos los campos del pedido guardado
         currentPedido = pedidoGuardado;
+        currentOrder = Array.isArray(pedidoGuardado.items) ? pedidoGuardado.items : [];
+        // Si hay abono o descuento, mantenerlos
+        if (typeof pedidoGuardado.abono !== 'undefined') currentPedido.abono = pedidoGuardado.abono;
+        if (typeof pedidoGuardado.descuento !== 'undefined') currentPedido.descuento = pedidoGuardado.descuento;
+        // Actualizar la UI
+        cargarPedidoEnUI(currentPedido);
+      } else {
+        currentPedido = null;
+        currentOrder = [];
       }
     }
+    // (fin de bloque de carga de pedido, sin duplicados)
   });
 
   // --- Guardar automáticamente cada vez que cambia el pedido ---
@@ -1089,10 +1098,34 @@
 
         // Initialize the app
         function init() {
-            // Botón volver
+            // Botón volver con advertencia si hay cambios no guardados
             const btnVolver = document.getElementById('btn-volver');
             if (btnVolver) {
-                btnVolver.addEventListener('click', () => {
+                btnVolver.addEventListener('click', (e) => {
+                    // Obtener pedido guardado
+                    let pedidoGuardado = currentTable ? getPedidoMesa(currentTable.id) : null;
+                    // Comprobar si hay cambios no guardados
+                    let hayCambios = false;
+                    if (pedidoGuardado) {
+                        // Comparar items y totales
+                        const itemsGuardados = JSON.stringify(pedidoGuardado.items || []);
+                        const itemsActuales = JSON.stringify(currentOrder || []);
+                        const abonoGuardado = pedidoGuardado.abono || 0;
+                        const abonoActual = (typeof currentPedido === 'object' && currentPedido && currentPedido.abono) ? currentPedido.abono : 0;
+                        const descuentoGuardado = pedidoGuardado.descuento || 0;
+                        const descuentoActual = (typeof currentPedido === 'object' && currentPedido && currentPedido.descuento) ? currentPedido.descuento : 0;
+                        if (itemsGuardados !== itemsActuales || abonoGuardado !== abonoActual || descuentoGuardado !== descuentoActual) {
+                            hayCambios = true;
+                        }
+                    } else if (currentOrder && currentOrder.length > 0) {
+                        hayCambios = true;
+                    }
+                    if (hayCambios) {
+                        if (!confirm('No has guardado el pedido, ¿quieres salir?')) {
+                            e.preventDefault();
+                            return;
+                        }
+                    }
                     window.location.href = 'index.html';
                 });
             }
@@ -1707,15 +1740,21 @@ function showAbonoModal() {
     const abonoModal = document.createElement('div');
     abonoModal.id = 'abono-modal';
     abonoModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    // Detectar abono previo
+    let abonoPrevio = 0;
+    if (currentTable && getPedidoMesa(currentTable.id) && typeof getPedidoMesa(currentTable.id).abono === 'number') {
+        abonoPrevio = getPedidoMesa(currentTable.id).abono;
+    }
     abonoModal.innerHTML = `
         <div class="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 class="text-lg font-bold mb-4">Registrar Abono</h2>
             <label for="abono-amount" class="block text-sm font-medium text-gray-700 mb-2">¿Cuánto han abonado?</label>
             <input id="abono-amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="$" required>
             <div class="flex justify-end space-x-4">
-                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Aplicar</button>
+                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">${abonoPrevio > 0 ? 'Añadir' : 'Aplicar'}</button>
                 <button id="cancel-abono-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
             </div>
+            ${abonoPrevio > 0 ? `<div class="mt-2 text-sm text-yellow-700 font-semibold">Abono actual: $${abonoPrevio.toLocaleString('es-CO')}</div>` : ''}
         </div>
     `;
     document.body.appendChild(abonoModal);
@@ -1732,16 +1771,21 @@ function showAbonoModal() {
             alert('Por favor ingrese un valor de abono válido.');
             return;
         }
-        // Guardar abono en el pedido actual
         if (!currentTable || !Array.isArray(currentOrder)) {
             alert('No hay pedido activo.');
             return;
         }
-        // Guardar en localStorage
-        const total = getOrderTotal();
-        savePedidoMesa(currentTable.id, { items: currentOrder, total: total, abono: abonoValue });
+        // Obtener el pedido actual guardado (si existe)
+        let pedidoGuardado = getPedidoMesa(currentTable.id) || {};
+        // Sumar el abono nuevo al anterior
+        let abonoPrevio = typeof pedidoGuardado.abono === 'number' ? pedidoGuardado.abono : 0;
+        let abonoTotal = abonoPrevio + abonoValue;
+        pedidoGuardado.items = currentOrder;
+        pedidoGuardado.total = getOrderTotal();
+        pedidoGuardado.abono = abonoTotal;
+        savePedidoMesa(currentTable.id, pedidoGuardado);
         // Mostrar abono en el resumen
-        showAbonoSummary(abonoValue);
+        showAbonoSummary(abonoTotal);
         updateOrderSummary();
         document.body.removeChild(abonoModal);
         alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
@@ -1795,35 +1839,27 @@ function showDiscount() {
     const discountAmountInput = document.getElementById('discount-amount');
     const discountPercentageInput = document.getElementById('discount-percentage');
 
+    // Sincronización bidireccional entre $ y %
     discountPercentageInput.addEventListener('input', () => {
         const rawValue = discountPercentageInput.value.replace(/[^0-9.]/g, '');
         const percentage = parseFloat(rawValue);
-        if (!isNaN(percentage)) {
-            const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+        const total = currentOrder.reduce((sum, item) => sum + (item.product?.price || 0) * (item.quantity || 0), 0);
+        if (!isNaN(percentage) && total > 0) {
             const amount = (percentage / 100) * total;
-
-            // Actualizar el monto en $
             discountAmountInput.value = Math.round(amount).toLocaleString('es-CO');
         } else {
-            // Limpiar el campo de monto si el porcentaje no es válido
             discountAmountInput.value = '';
         }
     });
-
     discountAmountInput.addEventListener('input', () => {
         const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
         const amount = parseFloat(rawValue);
-        if (!isNaN(amount)) {
-            const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+        const total = currentOrder.reduce((sum, item) => sum + (item.product?.price || 0) * (item.quantity || 0), 0);
+        if (!isNaN(amount) && total > 0) {
             const percentage = (amount / total) * 100;
-
-            // Actualizar el porcentaje sin modificar el formato del usuario
             discountPercentageInput.value = percentage.toFixed(2);
-
-            // Formatear automáticamente con puntos
             discountAmountInput.value = amount.toLocaleString('es-CO');
         } else {
-            // Limpiar el campo de porcentaje si el monto no es válido
             discountPercentageInput.value = '';
         }
     });
@@ -1874,31 +1910,33 @@ function showDiscount() {
 
     // Lógica para aplicar descuento a referencia de producto
     document.getElementById('apply-discount-product-btn').addEventListener('click', () => {
-        // Mostrar lista de productos actuales
+        // Mostrar lista de productos actuales (todas las referencias en el pedido, incluso repetidas)
         const selectContainer = document.getElementById('discount-product-select-container');
         selectContainer.innerHTML = '';
         selectContainer.style.display = 'block';
-        // Crear select con productos únicos
-        const uniqueProducts = [];
-        const productMap = {};
-        currentOrder.forEach(item => {
-            if (item && item.product && !productMap[item.product.id]) {
-                productMap[item.product.id] = true;
-                uniqueProducts.push(item.product);
-            }
-        });
-        if (uniqueProducts.length === 0) {
+        // Crear select con productos del pedido (mostrar cada línea)
+        const productOptions = currentOrder.map((item, idx) => {
+            if (!item || !item.product) return null;
+            return {
+                idx,
+                id: item.product.id,
+                name: item.product.name,
+                price: item.product.price,
+                quantity: item.quantity
+            };
+        }).filter(Boolean);
+        if (productOptions.length === 0) {
             selectContainer.innerHTML = '<span class="text-red-600">No hay productos en el pedido.</span>';
             return;
         }
         const select = document.createElement('select');
         select.id = 'discount-product-select';
         select.className = 'w-full px-3 py-2 border border-gray-300 rounded-md mb-2';
-        uniqueProducts.forEach(prod => {
-            const opt = document.createElement('option');
-            opt.value = prod.id;
-            opt.textContent = prod.name + ' ($' + prod.price.toLocaleString('es-CO') + ')';
-            select.appendChild(opt);
+        productOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.idx;
+            option.textContent = `${opt.name} x${opt.quantity} ($${opt.price.toLocaleString('es-CO')})`;
+            select.appendChild(option);
         });
         selectContainer.appendChild(select);
         // Botón para aplicar el descuento al producto seleccionado
@@ -1914,7 +1952,7 @@ function showDiscount() {
             const reason = document.getElementById('discount-reason').value.trim();
             const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
             const amount = parseFloat(rawValue);
-            const productId = select.value;
+            const selectedIdx = select.value;
             if (!reason) {
                 alert('El motivo del descuento es obligatorio.');
                 return;
@@ -1923,8 +1961,8 @@ function showDiscount() {
                 alert('Por favor ingrese un valor de descuento válido en $.');
                 return;
             }
-            // Buscar el producto en el pedido
-            const item = currentOrder.find(i => i.product && String(i.product.id) === String(productId));
+            // Buscar el producto en el pedido (por índice de línea)
+            const item = currentOrder[selectedIdx];
             if (!item) {
                 alert('Producto no encontrado en el pedido.');
                 return;
@@ -1934,7 +1972,6 @@ function showDiscount() {
                 return;
             }
             // Guardar el descuento solo para ese producto
-            if (!item.descuento) item.descuento = 0;
             item.descuento = amount;
             item.descuentoReason = reason;
             // Guardar en currentOrderDiscount para referencia
@@ -1942,7 +1979,7 @@ function showDiscount() {
                 amount: amount,
                 reason: reason,
                 type: 'producto',
-                productId: productId
+                productId: item.product.id
             };
             // Mostrar resumen del descuento en la UI
             let discountElement = document.getElementById('discount-summary');
@@ -1952,7 +1989,7 @@ function showDiscount() {
                 discountElement.className = 'text-sm text-blue-700 mt-2';
                 totalSpan.parentNode.insertBefore(discountElement, totalSpan.nextSibling);
             }
-            discountElement.innerHTML = `<p><strong>Descuento en ${item.product.name}:</strong> -$${amount.toLocaleString('es-CO')}<br><span class="italic">${reason}</span></p>`;
+            discountElement.innerHTML = `<p><strong>Descuento en ${item.product.name}:</strong> -$${amount.toLocaleString('es-CO')}<br><span class=\"italic\">${reason}</span></p>`;
             updateOrderSummary();
             document.body.removeChild(discountModal);
         };

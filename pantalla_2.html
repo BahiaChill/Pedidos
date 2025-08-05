@@ -27,20 +27,23 @@
     function savePedidoMesa(mesaId, pedido) {
       const state = getMesasState();
       state[mesaId] = state[mesaId] || {};
-      // Serializar solo los datos necesarios de cada producto
+      // Validar y serializar solo los datos necesarios de cada producto
       const safePedido = {
         ...pedido,
-        items: Array.isArray(pedido.items) ? pedido.items.map(item => ({
-          product: {
-            id: item.product.id,
-            name: item.product.name,
-            price: item.product.price,
-            category: item.product.category || ''
-          },
-          quantity: item.quantity,
-          notes: item.notes || '',
-          descuento: item.descuento || 0
-        })) : []
+        items: Array.isArray(pedido.items) ? pedido.items.map(item => {
+          if (!item || !item.product || typeof item.product.id === 'undefined') return null;
+          return {
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              price: item.product.price,
+              category: item.product.category || ''
+            },
+            quantity: item.quantity,
+            notes: item.notes || '',
+            descuento: item.descuento || 0
+          };
+        }).filter(Boolean) : []
       };
       state[mesaId].pedido = safePedido;
       setMesasState(state);
@@ -58,17 +61,20 @@
         const pedido = state[mesaId].pedido;
         // Rehidratar productos (por si se guardaron sin métodos)
         if (Array.isArray(pedido.items)) {
-          pedido.items = pedido.items.map(item => ({
-            product: {
-              id: item.product.id,
-              name: item.product.name,
-              price: item.product.price,
-              category: item.product.category || ''
-            },
-            quantity: item.quantity,
-            notes: item.notes || '',
-            descuento: item.descuento || 0
-          }));
+          pedido.items = pedido.items.map(item => {
+            if (!item || !item.product || typeof item.product.id === 'undefined') return null;
+            return {
+              product: {
+                id: item.product.id,
+                name: item.product.name,
+                price: item.product.price,
+                category: item.product.category || ''
+              },
+              quantity: item.quantity,
+              notes: item.notes || '',
+              descuento: item.descuento || 0
+            };
+          }).filter(Boolean);
         }
         return pedido;
       }
@@ -856,9 +862,6 @@
                             <button id="clear-order-btn" class="w-full py-2 px-4 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition duration-200">
                                 Limpiar Pedido
                             </button>
-                            <button id="finalize-order-btn" class="w-full py-2 px-4 btn-primary rounded-md font-medium text-white hover:bg-opacity-90 transition duration-200">
-                                <span id="finalize-text">Finalizar Pedido</span>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -1008,8 +1011,6 @@
         const orderItems = document.getElementById('order-items');
         const totalSpan = document.getElementById('total');
         const clearOrderBtn = document.getElementById('clear-order-btn');
-        const finalizeOrderBtn = document.getElementById('finalize-order-btn');
-        const finalizeText = document.getElementById('finalize-text');
         const productModal = document.getElementById('product-modal');
         const modalProductName = document.getElementById('modal-product-name');
         const modalProductPrice = document.getElementById('modal-product-price');
@@ -1045,15 +1046,23 @@
             // Event listeners
             productSearch.addEventListener('input', filterProducts);
             clearOrderBtn.addEventListener('click', clearOrder);
-            finalizeOrderBtn.addEventListener('click', function() {
-                if (!currentTable || currentOrder.length === 0) {
-                    alert('No hay productos en el pedido o no hay mesa seleccionada.');
-                    return;
-                }
-                // Guardar el pedido en localStorage
-                savePedidoMesa(currentTable.id, { items: currentOrder, total: getOrderTotal() });
-                alert('Pedido guardado correctamente.');
-            });
+            // Crear botón guardar si no existe
+            if (!document.getElementById('save-order-btn')) {
+                const saveBtn = document.createElement('button');
+                saveBtn.id = 'save-order-btn';
+                saveBtn.className = 'w-full py-2 px-4 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition duration-200 mt-2';
+                saveBtn.textContent = 'Guardar Pedido';
+                saveBtn.addEventListener('click', function() {
+                    if (!currentTable) {
+                        alert('No hay mesa seleccionada.');
+                        return;
+                    }
+                    savePedidoMesa(currentTable.id, { items: currentOrder, total: getOrderTotal() });
+                    alert('Pedido guardado correctamente.');
+                });
+                const btnContainer = clearOrderBtn.parentNode;
+                btnContainer.insertBefore(saveBtn, clearOrderBtn.nextSibling);
+            }
             closeModalBtn.addEventListener('click', closeModal);
             cancelModalBtn.addEventListener('click', closeModal);
             decrementQuantity.addEventListener('click', () => adjustQuantity(-1));
@@ -1214,7 +1223,6 @@
                 closeModal();
                 
                 // Enable finalize order button
-                finalizeOrderBtn.disabled = false;
                 
                 // Hide loading state
                 addToOrderText.classList.remove('hidden');
@@ -1227,7 +1235,6 @@
             if (!Array.isArray(currentOrder) || currentOrder.length === 0) {
                 orderItems.innerHTML = '<div class="text-center text-gray-500 py-4">No hay productos agregados</div>';
                 totalSpan.textContent = '$0';
-                finalizeOrderBtn.disabled = true;
                 return;
             }
 
@@ -1340,41 +1347,34 @@ function getMesasDisponiblesParaMover() {
             }
         }
 
-
-        // Limpia completamente el pedido, abono y descuento de la mesa
+        // Clear order
         function clearOrder() {
-            if (currentOrder.length === 0 && !currentOrderDiscount && !getAbonoActual()) return;
+            if (currentOrder.length === 0) return;
             if (confirm('¿Está seguro de limpiar el pedido actual?')) {
-                // Limpiar productos
-                currentOrder = [];
-                // Limpiar descuento
-                currentOrderDiscount = null;
-                // Limpiar descuentos por producto
-                if (Array.isArray(currentOrder)) {
-                    currentOrder.forEach(item => { if (item && item.descuento) delete item.descuento; });
-                }
-                // Limpiar abono y pedido en localStorage
-                if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
-                    clearPedidoMesa(currentTable.id);
-                }
-                // Limpiar UI
-                const discountElement = document.getElementById('discount-summary');
-                if (discountElement) discountElement.innerHTML = '';
-                const abonoElement = document.getElementById('abono-summary');
-                if (abonoElement) abonoElement.innerHTML = '';
-                updateOrderSummary();
-                totalSpan.textContent = '$0';
-                finalizeOrderBtn.disabled = true;
+                orderItems.classList.add('order-item-remove');
+                setTimeout(() => {
+                    currentOrder = [];
+                    updateOrderSummary();
+                    orderItems.classList.remove('order-item-remove');
+                    // Limpiar mesa seleccionada
+                    currentTable = null;
+                    tableSelect.value = '';
+                    currentTableSpan.textContent = '';
+                    // Limpiar descuento
+                    currentOrderDiscount = null;
+                    // Limpiar medio de pago
+                    const paymentMethodSelect = document.getElementById('payment-method') || document.querySelector('#payment-method');
+                    if (paymentMethodSelect) paymentMethodSelect.value = '';
+                    // Limpiar datos del cliente
+                    customerName.value = '';
+                    customerId.value = '';
+                    customerContact.value = '';
+                    if (customerIdType) customerIdType.selectedIndex = 0;
+                    // Limpiar descuento visual en el resumen del pedido
+                    const discountElement = document.getElementById('discount-summary');
+                    if (discountElement) discountElement.innerHTML = '';
+                }, 300);
             }
-        }
-
-        // Helper para obtener abono actual
-        function getAbonoActual() {
-            if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
-                const pedido = getPedidoMesa(currentTable.id);
-                return pedido && typeof pedido.abono === 'number' ? pedido.abono : 0;
-            }
-            return 0;
         }
 
         // Show receipt

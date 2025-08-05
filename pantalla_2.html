@@ -784,7 +784,6 @@
         let nombre = '';
         let cantidad = 1;
         let precioUnitario = 0;
-        let totalReferencia = 0;
         if (item.product && item.product.name) {
           nombre = item.product.name;
           cantidad = item.quantity || 1;
@@ -794,7 +793,7 @@
           cantidad = item.cantidad || item.qty || 1;
           precioUnitario = item.precio || item.price || 0;
         }
-        totalReferencia = precioUnitario * cantidad;
+        const totalReferencia = precioUnitario * cantidad;
         subtotal += totalReferencia;
         const div = document.createElement('div');
         div.className = 'flex flex-col border-b py-2';
@@ -805,7 +804,7 @@
           </div>
           <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
             <span>Unitario: $${precioUnitario.toLocaleString('es-CO')}</span>
-            <span>Total: $${totalReferencia.toLocaleString('es-CO')}</span>
+            <span class="total-ref-item">${''}</span>
           </div>
         `;
         orderItemsDiv.appendChild(div);
@@ -827,28 +826,21 @@
       let totalFinal = subtotal - abono - descuento;
       if (totalFinal < 0) totalFinal = 0;
 
-      // Crear contenedor resumen
+      // Crear contenedor resumen UNIFICADO
       const resumenDiv = document.createElement('div');
       resumenDiv.id = 'resumen-pedido-flex';
       resumenDiv.className = 'flex flex-col gap-1 mt-2';
 
-      // Primera fila: Subtotal y Descuento
-      const fila1 = document.createElement('div');
-      fila1.className = 'flex justify-between items-center';
-      fila1.innerHTML = `
+      // Fila única: Subtotal, Descuento, Abono y Total
+      const filaResumen = document.createElement('div');
+      filaResumen.className = 'grid grid-cols-2 md:grid-cols-4 gap-2 items-center';
+      filaResumen.innerHTML = `
         <span id="subtotal-summary" class="text-sm text-gray-700"><strong>Subtotal:</strong> $${subtotal.toLocaleString('es-CO')}</span>
         <span id="discount-summary" class="text-sm text-blue-700">${descuento > 0 ? `<strong>Descuento:</strong> -$${descuento.toLocaleString('es-CO')}${pedido.descuento && pedido.descuento.reason ? `<br><span class=\"italic\">${pedido.descuento.reason}</span>` : ''}` : ''}</span>
-      `;
-      resumenDiv.appendChild(fila1);
-
-      // Segunda fila: Abono y Total
-      const fila2 = document.createElement('div');
-      fila2.className = 'flex justify-between items-center';
-      fila2.innerHTML = `
         <span id="abono-summary" class="text-sm text-yellow-700">${abono > 0 ? `<strong>Abono:</strong> -$${abono.toLocaleString('es-CO')}` : ''}</span>
         <span id="total-summary" class="text-lg font-bold text-gray-900"><strong>Total:</strong> $${totalFinal.toLocaleString('es-CO')}</span>
       `;
-      resumenDiv.appendChild(fila2);
+      resumenDiv.appendChild(filaResumen);
 
       // Insertar el resumen después de order-items
       const orderItemsParent = orderItemsDiv.parentNode;
@@ -1116,7 +1108,28 @@
                     hayCambios = true;
                 }
                 if (hayCambios) {
-                    if (!confirm('No has guardado el pedido, ¿quieres salir?')) {
+                    if (!document.getElementById('unsaved-warning-modal')) {
+                        // Mostrar modal personalizado solo si no existe
+                        const modal = document.createElement('div');
+                        modal.id = 'unsaved-warning-modal';
+                        modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+                        modal.style.background = 'rgba(0,0,0,0.4)';
+                        modal.innerHTML = `
+                          <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
+                            <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No has guardado el pedido, ¿quieres salir?</h2>
+                            <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;">
+                              <button id="unsaved-warning-cancel" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
+                              <button id="unsaved-warning-exit" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#3b82f6;color:#fff;font-weight:600;">Salir</button>
+                            </div>
+                          </div>
+                        `;
+                        document.body.appendChild(modal);
+                        document.getElementById('unsaved-warning-cancel').onclick = function() {
+                            document.body.removeChild(modal);
+                        };
+                        document.getElementById('unsaved-warning-exit').onclick = function() {
+                            window.location.href = 'index.html';
+                        };
                         e.preventDefault();
                         return;
                     }
@@ -1800,7 +1813,10 @@ function showAbonoModal() {
         showAbonoSummary(abonoTotal);
         updateOrderSummary();
         document.body.removeChild(abonoModal);
-        alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
+        // Solo mostrar el mensaje la PRIMERA vez que se añade abono
+        if (!abonoPrevio || abonoPrevio === 0) {
+            alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
+        }
     });
 }
 
@@ -1847,6 +1863,23 @@ function showDiscount() {
 
     // Lógica de formulario de descuento según tipo
     function showDiscountForm(tipo) {
+        // Sincronización bidireccional entre $ y %
+        // Generar opciones de productos para la lista desplegable si es por referencia
+        let productSelectHTML = '';
+        if (tipo === 'producto') {
+            const productosEnPedido = (currentOrder || []).filter(item => item && item.product && item.product.name);
+            if (productosEnPedido.length > 0) {
+                productSelectHTML = `
+                <label for="discount-product-select" class="block text-sm font-medium text-gray-700 mb-2">Referencia del producto</label>
+                <select id="discount-product-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4">
+                    ${productosEnPedido.map(item => `<option value="${item.product.id}">${item.product.name} (x${item.quantity})</option>`).join('')}
+                </select>
+                `;
+            } else {
+                productSelectHTML = `<div class='text-red-600 mb-2'>No hay productos en el pedido.</div>`;
+            }
+        }
+
         const discountModal = document.createElement('div');
         discountModal.id = 'discount-modal';
         discountModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
@@ -1854,24 +1887,85 @@ function showDiscount() {
             <div class="bg-white rounded-lg shadow-lg p-6 w-96">
                 <h2 class="text-lg font-bold mb-4">Aplicar Descuento</h2>
                 <label for="discount-reason" class="block text-sm font-medium text-gray-700 mb-2">Motivo del descuento</label>
-                <textarea id="discount-reason" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" rows="3" required></textarea>
-
+                <textarea id="discount-reason" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-2" rows="3" required></textarea>
+                ${tipo === 'producto' ? productSelectHTML : ''}
                 <label for="discount-amount" class="block text-sm font-medium text-gray-700 mb-2">Descuento en $</label>
                 <input id="discount-amount" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="$">
-
                 <label for="discount-percentage" class="block text-sm font-medium text-gray-700 mb-2">Descuento en %</label>
                 <input id="discount-percentage" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="%">
-
-                <div id="discount-product-select-container" class="mb-4" style="display:${tipo==='producto'?'block':'none'};"></div>
-
                 <div class="flex justify-end space-x-4 mt-6">
-                    ${tipo==='total' ? `<button id="apply-discount-total-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Aplicar a total</button>` : ''}
-                    ${tipo==='producto' ? `<button id="apply-discount-product-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded">Aplicar a referencia de producto</button>` : ''}
+                    ${tipo==='total' ? `<button id=\"apply-discount-total-btn\" class=\"bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded\">Aplicar a total</button>` : ''}
+                    ${tipo==='producto' ? `<button id=\"apply-discount-product-btn\" class=\"bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded\">Aplicar a referencia de producto</button>` : ''}
                     <button id="cancel-discount-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
                 </div>
             </div>
         `;
         document.body.appendChild(discountModal);
+
+        // Sincronización bidireccional entre $ y %
+        setTimeout(() => {
+            const discountAmountInput = document.getElementById('discount-amount');
+            const discountPercentageInput = document.getElementById('discount-percentage');
+            let totalBase = 0;
+            if (tipo === 'producto') {
+                // Si es por referencia, buscar el producto seleccionado
+                const select = document.getElementById('discount-product-select');
+                if (select && select.value) {
+                    const prodId = parseInt(select.value);
+                    const prodItem = currentOrder.find(item => item.product && item.product.id == prodId);
+                    if (prodItem) {
+                        totalBase = (prodItem.product.price || 0) * (prodItem.quantity || 1);
+                    }
+                }
+            } else {
+                // Si es al total, sumar todo el pedido
+                totalBase = currentOrder.reduce((sum, item) => sum + (item.product?.price || 0) * (item.quantity || 0), 0);
+            }
+
+            function syncFromPercentage() {
+                const rawValue = discountPercentageInput.value.replace(/[^0-9.]/g, '');
+                const percentage = parseFloat(rawValue);
+                if (!isNaN(percentage) && totalBase > 0) {
+                    const amount = (percentage / 100) * totalBase;
+                    discountAmountInput.value = Math.round(amount).toLocaleString('es-CO');
+                } else {
+                    discountAmountInput.value = '';
+                }
+            }
+            function syncFromAmount() {
+                const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
+                const amount = parseFloat(rawValue);
+                if (!isNaN(amount) && totalBase > 0) {
+                    const percentage = (amount / totalBase) * 100;
+                    discountPercentageInput.value = percentage.toFixed(2);
+                    discountAmountInput.value = amount.toLocaleString('es-CO');
+                } else {
+                    discountPercentageInput.value = '';
+                }
+            }
+
+            discountPercentageInput.addEventListener('input', syncFromPercentage);
+            discountAmountInput.addEventListener('input', syncFromAmount);
+
+            // Si cambia el producto seleccionado, actualizar el total base y sincronizar
+            if (tipo === 'producto') {
+                const select = document.getElementById('discount-product-select');
+                if (select) {
+                    select.addEventListener('change', () => {
+                        const prodId = parseInt(select.value);
+                        const prodItem = currentOrder.find(item => item.product && item.product.id == prodId);
+                        if (prodItem) {
+                            totalBase = (prodItem.product.price || 0) * (prodItem.quantity || 1);
+                        } else {
+                            totalBase = 0;
+                        }
+                        syncFromPercentage();
+                        syncFromAmount();
+                    });
+                }
+            }
+        }, 0);
+        // (declaración y uso de discountModal ya realizada arriba, no repetir)
 
         // Listener para el botón Cancelar
         const cancelBtn = discountModal.querySelector('#cancel-discount-btn');

@@ -1021,27 +1021,27 @@
         const products = [
             { id: 1, name: "Aguila", price: 4000, category: "cerveza" },
             { id: 2, name: "Poker", price: 4000, category: "cerveza" },
-            { id: 3, name: "Budwaiser", price: 3000, category: "cerveza" },
-            { id: 4, name: "Costena", price: 3000, category: "cerveza" },
-            { id: 5, name: "Coronita", price: 4000, category: "cerveza" },
-            { id: 6, name: "Corona", price: 8000, category: "cerveza" },
-            { id: 7, name: "Stella Artois", price: 8000, category: "cerveza" },
-            { id: 8, name: "1/2 Lider", price: 45000, category: "licor" },
-            { id: 9, name: "1 Lider", price: 85000, category: "licor" },
-            { id: 10, name: "1/2 Ron", price: 40000, category: "licor" },
-            { id: 11, name: "1 Ron", price: 80000, category: "licor" },
-            { id: 12, name: "Buchanan's", price: 220000, category: "licor" },
-            { id: 13, name: "Onix Negro", price: 80000, category: "licor" },
-            { id: 14, name: "Bacardi", price: 80000, category: "licor" },
-            { id: 15, name: "Onix Amarillo", price: 90000, category: "licor" },
-            { id: 16, name: "Cigarrillo", price: 1000, category: "otros" },
-            { id: 17, name: "Michelada", price: 2000, category: "coctel" },
-            { id: 18, name: "Agua", price: 3000, category: "bebida" },
-            { id: 19, name: "Cafe", price: 3000, category: "bebida" },
-            { id: 20, name: "Mani", price: 3000, category: "snack" },
-            { id: 21, name: "Coca Cola", price: 4000, category: "bebida" },
-            { id: 22, name: "Soda", price: 4000, category: "bebida" },
-            { id: 23, name: "Sprite", price: 4000, category: "bebida" },
+            { id: 3, name: "Aromatica", price: 2500, category: "cerveza" },
+            { id: 4, name: "Coronita", price: 5000, category: "cerveza" },
+            { id: 5, name: "Stella Artois", price: 10000, category: "cerveza" },
+            { id: 6, name: "Media Lider", price: 45000, category: "licor" },
+            { id: 7, name: "Lider", price: 95000, category: "licor" },
+            { id: 8, name: "Ron", price: 105000, category: "licor" },
+            { id: 9, name: "Buchanan's", price: 250000, category: "licor" },
+            { id: 10, name: "Onix Amarillo", price: 95000, category: "licor" },
+            { id: 11, name: "Bacardi Mojito", price: 95000, category: "licor" },
+            { id: 12, name: "Lucky Cigarrillo", price: 1200, category: "otros" },
+            { id: 13, name: "Mustang Cigarrillo", price: 1000, category: "otros" },
+            { id: 14, name: "Michelada", price: 2000, category: "otros" },
+            { id: 15, name: "Agua", price: 2000, category: "bebida" },
+            { id: 16, name: "Coca Cola", price: 4000, category: "bebida" },
+            { id: 17, name: "Bretaña", price: 4500, category: "bebida" },
+            { id: 18, name: "Papas", price: 4000, category: "bebida" },
+            { id: 19, name: "Cafe", price: 2500, category: "bebida" },
+            { id: 20, name: "Malboro Cigarrillo", price: 1000, category: "otros" },
+            { id: 21, name: "-", price: 0, category: "bebida" },
+            { id: 22, name: "-", price: 0, category: "bebida" },
+            { id: 23, name: "-", price: 0, category: "bebida" },
             { id: 24, name: "Ron con Cola", price: 28000, category: "coctel" },
             { id: 25, name: "Pina Chill", price: 28000, category: "coctel" },
             { id: 26, name: "Mojito", price: 28000, category: "coctel" },
@@ -1419,26 +1419,38 @@ function getMesasDisponiblesParaMover() {
             if (confirm('¿Está seguro de limpiar el pedido actual?')) {
                 orderItems.classList.add('order-item-remove');
                 setTimeout(() => {
+                    // Limpiar todo: productos, abonos, descuentos, subtotal, etc.
                     currentOrder = [];
+                    currentOrderDiscount = null;
+                    if (typeof currentPedido === 'object' && currentPedido) {
+                        delete currentPedido.abono;
+                        delete currentPedido.descuento;
+                        delete currentPedido.discount;
+                        currentPedido.items = [];
+                    }
+                    // Limpiar visualmente los resúmenes
+                    const abonoSummary = document.getElementById('abono-summary');
+                    if (abonoSummary) abonoSummary.remove();
+                    const discountElement = document.getElementById('discount-summary');
+                    if (discountElement) discountElement.remove();
+                    const subtotalDiv = document.getElementById('subtotal-summary');
+                    if (subtotalDiv) subtotalDiv.remove();
                     updateOrderSummary();
                     orderItems.classList.remove('order-item-remove');
-                    // Limpiar mesa seleccionada
+                    // Limpiar mesa seleccionada (dejarla libre/azul)
                     currentTable = null;
-                    tableSelect.value = '';
+                    if (typeof tableSelect !== 'undefined' && tableSelect) tableSelect.value = '';
                     currentTableSpan.textContent = '';
-                    // Limpiar descuento
-                    currentOrderDiscount = null;
                     // Limpiar medio de pago
                     const paymentMethodSelect = document.getElementById('payment-method') || document.querySelector('#payment-method');
                     if (paymentMethodSelect) paymentMethodSelect.value = '';
                     // Limpiar datos del cliente
-                    customerName.value = '';
-                    customerId.value = '';
-                    customerContact.value = '';
-                    if (customerIdType) customerIdType.selectedIndex = 0;
-                    // Limpiar descuento visual en el resumen del pedido
-                    const discountElement = document.getElementById('discount-summary');
-                    if (discountElement) discountElement.innerHTML = '';
+                    if (typeof customerName !== 'undefined') customerName.value = '';
+                    if (typeof customerId !== 'undefined') customerId.value = '';
+                    if (typeof customerContact !== 'undefined') customerContact.value = '';
+                    if (typeof customerIdType !== 'undefined' && customerIdType) customerIdType.selectedIndex = 0;
+                    // Limpiar en localStorage
+                    if (currentMesaId) clearPedidoMesa(currentMesaId);
                 }, 300);
             }
         }
@@ -1615,10 +1627,25 @@ clearOrderButton.parentNode.insertBefore(removeDiscountButton, clearOrderButton)
 
 // Evento para eliminar el descuento aplicado
 removeDiscountButton.addEventListener('click', () => {
+    // Solo eliminar el descuento, no el pedido ni abonos
     currentOrderDiscount = null;
+    // Si hay un pedido cargado en memoria, también quitar el descuento
+    if (typeof currentPedido === 'object' && currentPedido) {
+        if (currentPedido.descuento) delete currentPedido.descuento;
+        if (currentPedido.discount) delete currentPedido.discount;
+    }
+    // Eliminar visualmente el resumen de descuento
     const discountElement = document.getElementById('discount-summary');
-    if (discountElement) discountElement.innerHTML = '';
+    if (discountElement) discountElement.remove();
     updateOrderSummary();
+    // Si hay una mesa activa, guardar el pedido sin descuento
+    if (currentMesaId && typeof getPedidoMesa === 'function') {
+        const pedido = getPedidoMesa(currentMesaId);
+        if (pedido) {
+            delete pedido.descuento;
+            savePedidoMesa(currentMesaId, pedido);
+        }
+    }
 });
 
 // Modal de abono

@@ -805,52 +805,49 @@
         orderItemsDiv.innerHTML = '<div class="text-center text-gray-500 py-4">No hay productos agregados</div>';
       }
 
-      // Subtotal
-      let subtotalDiv = document.getElementById('subtotal-summary');
-      if (!subtotalDiv) {
-        subtotalDiv = document.createElement('div');
-        subtotalDiv.id = 'subtotal-summary';
-        subtotalDiv.className = 'text-sm text-gray-700 mt-2';
-        const totalSpan = document.getElementById('total');
-        if (totalSpan) totalSpan.parentNode.insertBefore(subtotalDiv, totalSpan);
-      }
-      subtotalDiv.innerHTML = `<p><strong>Subtotal:</strong> $${subtotal.toLocaleString('es-CO')}</p>`;
+      // Eliminar resúmenes previos
+      const resumenIds = ['subtotal-summary', 'discount-summary', 'abono-summary', 'total-summary'];
+      resumenIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+      });
 
-      // Calcular total final
-      let totalFinal = subtotal;
-      if (pedido.descuento && pedido.descuento.amount > 0) {
-        totalFinal -= pedido.descuento.amount;
-      }
-      if (typeof pedido.abono !== 'undefined' && pedido.abono > 0) {
-        totalFinal -= pedido.abono;
-      }
+      // Calcular valores
+      let descuento = (pedido.descuento && pedido.descuento.amount > 0) ? pedido.descuento.amount : 0;
+      let abono = (typeof pedido.abono !== 'undefined' && pedido.abono > 0) ? pedido.abono : 0;
+      let totalFinal = subtotal - descuento - abono;
       if (totalFinal < 0) totalFinal = 0;
 
-      // Total
-      const totalSpan = document.getElementById('total');
-      if (totalSpan) totalSpan.textContent = `$${totalFinal.toLocaleString('es-CO')}`;
+      // Crear contenedor resumen
+      const resumenDiv = document.createElement('div');
+      resumenDiv.id = 'resumen-pedido-flex';
+      resumenDiv.className = 'flex flex-col gap-1 mt-2';
 
-      // Mostrar abono si existe
-      if (typeof pedido.abono !== 'undefined' && pedido.abono > 0) {
-        let abonoSummary = document.getElementById('abono-summary');
-        if (!abonoSummary) {
-          abonoSummary = document.createElement('div');
-          abonoSummary.id = 'abono-summary';
-          abonoSummary.className = 'text-sm text-yellow-700 mt-2';
-          if (totalSpan) totalSpan.parentNode.insertBefore(abonoSummary, totalSpan.nextSibling);
-        }
-        abonoSummary.innerHTML = `<p><strong>Abono:</strong> -$${pedido.abono.toLocaleString('es-CO')}</p>`;
-      }
-      // Mostrar descuento si existe
-      if (pedido.descuento && pedido.descuento.amount > 0) {
-        let discountElement = document.getElementById('discount-summary');
-        if (!discountElement) {
-          discountElement = document.createElement('div');
-          discountElement.id = 'discount-summary';
-          discountElement.className = 'text-sm text-blue-700 mt-2';
-          if (totalSpan) totalSpan.parentNode.insertBefore(discountElement, totalSpan.nextSibling);
-        }
-        discountElement.innerHTML = `<p><strong>Descuento:</strong> -$${pedido.descuento.amount.toLocaleString('es-CO')}<br><span class="italic">${pedido.descuento.reason || ''}</span></p>`;
+      // Primera fila: Subtotal y Descuento
+      const fila1 = document.createElement('div');
+      fila1.className = 'flex justify-between items-center';
+      fila1.innerHTML = `
+        <span id="subtotal-summary" class="text-sm text-gray-700"><strong>Subtotal:</strong> $${subtotal.toLocaleString('es-CO')}</span>
+        <span id="discount-summary" class="text-sm text-blue-700">${descuento > 0 ? `<strong>Descuento:</strong> -$${descuento.toLocaleString('es-CO')}${pedido.descuento && pedido.descuento.reason ? `<br><span class=\"italic\">${pedido.descuento.reason}</span>` : ''}` : ''}</span>
+      `;
+      resumenDiv.appendChild(fila1);
+
+      // Segunda fila: Abono y Total
+      const fila2 = document.createElement('div');
+      fila2.className = 'flex justify-between items-center';
+      fila2.innerHTML = `
+        <span id="abono-summary" class="text-sm text-yellow-700">${abono > 0 ? `<strong>Abono:</strong> -$${abono.toLocaleString('es-CO')}` : ''}</span>
+        <span id="total-summary" class="text-lg font-bold text-gray-900"><strong>Total:</strong> $${totalFinal.toLocaleString('es-CO')}</span>
+      `;
+      resumenDiv.appendChild(fila2);
+
+      // Insertar el resumen después de order-items
+      const orderItemsParent = orderItemsDiv.parentNode;
+      if (orderItemsParent) {
+        // Buscar y eliminar resumen anterior si existe
+        const oldResumen = document.getElementById('resumen-pedido-flex');
+        if (oldResumen) oldResumen.remove();
+        orderItemsParent.insertBefore(resumenDiv, orderItemsDiv.nextSibling);
       }
     }
     // No se cargan datos de cliente
@@ -1627,25 +1624,82 @@ clearOrderButton.parentNode.insertBefore(removeDiscountButton, clearOrderButton)
 
 // Evento para eliminar el descuento aplicado
 removeDiscountButton.addEventListener('click', () => {
-    // Solo eliminar el descuento, no el pedido ni abonos
-    currentOrderDiscount = null;
-    // Si hay un pedido cargado en memoria, también quitar el descuento
-    if (typeof currentPedido === 'object' && currentPedido) {
-        if (currentPedido.descuento) delete currentPedido.descuento;
-        if (currentPedido.discount) delete currentPedido.discount;
-    }
-    // Eliminar visualmente el resumen de descuento
-    const discountElement = document.getElementById('discount-summary');
-    if (discountElement) discountElement.remove();
-    updateOrderSummary();
-    // Si hay una mesa activa, guardar el pedido sin descuento
-    if (currentMesaId && typeof getPedidoMesa === 'function') {
-        const pedido = getPedidoMesa(currentMesaId);
-        if (pedido) {
-            delete pedido.descuento;
-            savePedidoMesa(currentMesaId, pedido);
+    // Mostrar modal personalizado para elegir qué eliminar
+    const modal = document.createElement('div');
+    modal.id = 'modal-eliminar-resumen';
+    modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+    modal.style.background = 'rgba(0,0,0,0.4)';
+    modal.innerHTML = `
+      <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
+        <h2 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">¿Qué quieres eliminar?</h2>
+        <button id="eliminar-abono-btn" style="width:100%;background:#fde047;color:#b45309;font-weight:600;padding:0.8rem 0;border-radius:0.7rem;font-size:1rem;">Eliminar solo Abono</button>
+        <button id="eliminar-descuento-btn" style="width:100%;background:#bbf7d0;color:#166534;font-weight:600;padding:0.8rem 0;border-radius:0.7rem;font-size:1rem;">Eliminar solo Descuento</button>
+        <button id="eliminar-ambos-btn" style="width:100%;background:#fecaca;color:#991b1b;font-weight:600;padding:0.8rem 0;border-radius:0.7rem;font-size:1rem;">Eliminar Ambos</button>
+        <button id="cancelar-eliminar-resumen" style="margin-top:0.5rem;padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Acciones de los botones
+    document.getElementById('eliminar-abono-btn').onclick = function() {
+        if (typeof currentPedido === 'object' && currentPedido) {
+            delete currentPedido.abono;
         }
-    }
+        const abonoSummary = document.getElementById('abono-summary');
+        if (abonoSummary) abonoSummary.remove();
+        if (currentMesaId && typeof getPedidoMesa === 'function') {
+            const pedido = getPedidoMesa(currentMesaId);
+            if (pedido) {
+                delete pedido.abono;
+                savePedidoMesa(currentMesaId, pedido);
+            }
+        }
+        updateOrderSummary();
+        document.body.removeChild(modal);
+    };
+    document.getElementById('eliminar-descuento-btn').onclick = function() {
+        currentOrderDiscount = null;
+        if (typeof currentPedido === 'object' && currentPedido) {
+            delete currentPedido.descuento;
+            delete currentPedido.discount;
+        }
+        const discountElement = document.getElementById('discount-summary');
+        if (discountElement) discountElement.remove();
+        if (currentMesaId && typeof getPedidoMesa === 'function') {
+            const pedido = getPedidoMesa(currentMesaId);
+            if (pedido) {
+                delete pedido.descuento;
+                savePedidoMesa(currentMesaId, pedido);
+            }
+        }
+        updateOrderSummary();
+        document.body.removeChild(modal);
+    };
+    document.getElementById('eliminar-ambos-btn').onclick = function() {
+        currentOrderDiscount = null;
+        if (typeof currentPedido === 'object' && currentPedido) {
+            delete currentPedido.abono;
+            delete currentPedido.descuento;
+            delete currentPedido.discount;
+        }
+        const abonoSummary = document.getElementById('abono-summary');
+        if (abonoSummary) abonoSummary.remove();
+        const discountElement = document.getElementById('discount-summary');
+        if (discountElement) discountElement.remove();
+        if (currentMesaId && typeof getPedidoMesa === 'function') {
+            const pedido = getPedidoMesa(currentMesaId);
+            if (pedido) {
+                delete pedido.abono;
+                delete pedido.descuento;
+                savePedidoMesa(currentMesaId, pedido);
+            }
+        }
+        updateOrderSummary();
+        document.body.removeChild(modal);
+    };
+    document.getElementById('cancelar-eliminar-resumen').onclick = function() {
+        document.body.removeChild(modal);
+    };
 });
 
 // Modal de abono
@@ -1725,6 +1779,8 @@ function showDiscount() {
             <label for="discount-percentage" class="block text-sm font-medium text-gray-700 mb-2">Descuento en %</label>
             <input id="discount-percentage" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="%">
 
+            <div id="discount-product-select-container" class="mb-4" style="display:none;"></div>
+
             <div class="flex justify-end space-x-4 mt-6">
                 <button id="apply-discount-total-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Aplicar a total</button>
                 <button id="apply-discount-product-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded">Aplicar a referencia de producto</button>
@@ -1778,39 +1834,31 @@ function showDiscount() {
         document.body.removeChild(discountModal);
     });
 
-    // Manejar el botón "Aplicar"
-    const applyDiscountButton = document.getElementById('apply-discount-btn');
-    applyDiscountButton.addEventListener('click', () => {
+
+    // Lógica para aplicar descuento a todo el pedido
+    document.getElementById('apply-discount-total-btn').addEventListener('click', () => {
         const reason = document.getElementById('discount-reason').value.trim();
         const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
         const amount = parseFloat(rawValue);
-
+        const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
         if (!reason) {
             alert('El motivo del descuento es obligatorio.');
             return;
         }
-
         if (isNaN(amount) || amount <= 0) {
             alert('Por favor ingrese un valor de descuento válido en $.');
             return;
         }
-
-        const total = currentOrder.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
         if (amount > total) {
             alert('El descuento no puede ser mayor que el total de la factura.');
             return;
         }
-
-        // Actualizar el resumen del pedido
-        const discountedTotal = total - amount;
-        totalSpan.textContent = `$${discountedTotal.toLocaleString('es-CO')}`;
-
         // Guardar el descuento para usarlo en showReceipt y en el resumen
         currentOrderDiscount = {
             amount: amount,
-            reason: reason
+            reason: reason,
+            type: 'total'
         };
-
         // Mostrar resumen del descuento en la UI
         let discountElement = document.getElementById('discount-summary');
         if (!discountElement) {
@@ -1820,11 +1868,94 @@ function showDiscount() {
             totalSpan.parentNode.insertBefore(discountElement, totalSpan.nextSibling);
         }
         discountElement.innerHTML = `<p><strong>Descuento:</strong> -$${amount.toLocaleString('es-CO')}<br><span class="italic">${reason}</span></p>`;
-
         updateOrderSummary();
-
-        // Cerrar el modal de descuento
         document.body.removeChild(discountModal);
+    });
+
+    // Lógica para aplicar descuento a referencia de producto
+    document.getElementById('apply-discount-product-btn').addEventListener('click', () => {
+        // Mostrar lista de productos actuales
+        const selectContainer = document.getElementById('discount-product-select-container');
+        selectContainer.innerHTML = '';
+        selectContainer.style.display = 'block';
+        // Crear select con productos únicos
+        const uniqueProducts = [];
+        const productMap = {};
+        currentOrder.forEach(item => {
+            if (item && item.product && !productMap[item.product.id]) {
+                productMap[item.product.id] = true;
+                uniqueProducts.push(item.product);
+            }
+        });
+        if (uniqueProducts.length === 0) {
+            selectContainer.innerHTML = '<span class="text-red-600">No hay productos en el pedido.</span>';
+            return;
+        }
+        const select = document.createElement('select');
+        select.id = 'discount-product-select';
+        select.className = 'w-full px-3 py-2 border border-gray-300 rounded-md mb-2';
+        uniqueProducts.forEach(prod => {
+            const opt = document.createElement('option');
+            opt.value = prod.id;
+            opt.textContent = prod.name + ' ($' + prod.price.toLocaleString('es-CO') + ')';
+            select.appendChild(opt);
+        });
+        selectContainer.appendChild(select);
+        // Botón para aplicar el descuento al producto seleccionado
+        let btn = document.getElementById('discount-product-apply-btn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'discount-product-apply-btn';
+            btn.className = 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded w-full mt-2';
+            btn.textContent = 'Aplicar descuento a producto';
+        }
+        selectContainer.appendChild(btn);
+        btn.onclick = function() {
+            const reason = document.getElementById('discount-reason').value.trim();
+            const rawValue = discountAmountInput.value.replace(/[^0-9]/g, '');
+            const amount = parseFloat(rawValue);
+            const productId = select.value;
+            if (!reason) {
+                alert('El motivo del descuento es obligatorio.');
+                return;
+            }
+            if (isNaN(amount) || amount <= 0) {
+                alert('Por favor ingrese un valor de descuento válido en $.');
+                return;
+            }
+            // Buscar el producto en el pedido
+            const item = currentOrder.find(i => i.product && String(i.product.id) === String(productId));
+            if (!item) {
+                alert('Producto no encontrado en el pedido.');
+                return;
+            }
+            if (amount > item.product.price * item.quantity) {
+                alert('El descuento no puede ser mayor que el total de la referencia seleccionada.');
+                return;
+            }
+            // Guardar el descuento solo para ese producto
+            if (!item.descuento) item.descuento = 0;
+            item.descuento = amount;
+            item.descuentoReason = reason;
+            // Guardar en currentOrderDiscount para referencia
+            currentOrderDiscount = {
+                amount: amount,
+                reason: reason,
+                type: 'producto',
+                productId: productId
+            };
+            // Mostrar resumen del descuento en la UI
+            let discountElement = document.getElementById('discount-summary');
+            if (!discountElement) {
+                discountElement = document.createElement('div');
+                discountElement.id = 'discount-summary';
+                discountElement.className = 'text-sm text-blue-700 mt-2';
+                totalSpan.parentNode.insertBefore(discountElement, totalSpan.nextSibling);
+            }
+            discountElement.innerHTML = `<p><strong>Descuento en ${item.product.name}:</strong> -$${amount.toLocaleString('es-CO')}<br><span class="italic">${reason}</span></p>`;
+            updateOrderSummary();
+            document.body.removeChild(discountModal);
+        };
     });
 
 }

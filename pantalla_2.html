@@ -769,32 +769,89 @@
     if (pedido.items && Array.isArray(pedido.items)) {
       const orderItemsDiv = document.getElementById('order-items');
       orderItemsDiv.innerHTML = '';
+      let subtotal = 0;
       pedido.items.forEach(item => {
         if (!item) return;
-        // Si la estructura es {product, quantity, ...}
         let nombre = '';
         let cantidad = 1;
+        let precioUnitario = 0;
+        let totalReferencia = 0;
         if (item.product && item.product.name) {
           nombre = item.product.name;
           cantidad = item.quantity || 1;
+          precioUnitario = item.product.price || 0;
         } else {
-          // fallback para estructuras antiguas
           nombre = item.nombre || item.name || 'Producto';
           cantidad = item.cantidad || item.qty || 1;
+          precioUnitario = item.precio || item.price || 0;
         }
+        totalReferencia = precioUnitario * cantidad;
+        subtotal += totalReferencia;
         const div = document.createElement('div');
-        div.className = 'flex justify-between items-center py-2 border-b';
-        div.innerHTML = `<span>${nombre}</span><span>x${cantidad}</span>`;
+        div.className = 'flex flex-col border-b py-2';
+        div.innerHTML = `
+          <div class="flex justify-between items-center">
+            <span>${nombre}</span>
+            <span>x${cantidad}</span>
+          </div>
+          <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+            <span>Unitario: $${precioUnitario.toLocaleString('es-CO')}</span>
+            <span>Total: $${totalReferencia.toLocaleString('es-CO')}</span>
+          </div>
+        `;
         orderItemsDiv.appendChild(div);
       });
       if (pedido.items.length === 0) {
         orderItemsDiv.innerHTML = '<div class="text-center text-gray-500 py-4">No hay productos agregados</div>';
       }
-    }
-    // Total
-    if (typeof pedido.total !== 'undefined') {
+
+      // Subtotal
+      let subtotalDiv = document.getElementById('subtotal-summary');
+      if (!subtotalDiv) {
+        subtotalDiv = document.createElement('div');
+        subtotalDiv.id = 'subtotal-summary';
+        subtotalDiv.className = 'text-sm text-gray-700 mt-2';
+        const totalSpan = document.getElementById('total');
+        if (totalSpan) totalSpan.parentNode.insertBefore(subtotalDiv, totalSpan);
+      }
+      subtotalDiv.innerHTML = `<p><strong>Subtotal:</strong> $${subtotal.toLocaleString('es-CO')}</p>`;
+
+      // Calcular total final
+      let totalFinal = subtotal;
+      if (pedido.descuento && pedido.descuento.amount > 0) {
+        totalFinal -= pedido.descuento.amount;
+      }
+      if (typeof pedido.abono !== 'undefined' && pedido.abono > 0) {
+        totalFinal -= pedido.abono;
+      }
+      if (totalFinal < 0) totalFinal = 0;
+
+      // Total
       const totalSpan = document.getElementById('total');
-      if (totalSpan) totalSpan.textContent = `$${pedido.total}`;
+      if (totalSpan) totalSpan.textContent = `$${totalFinal.toLocaleString('es-CO')}`;
+
+      // Mostrar abono si existe
+      if (typeof pedido.abono !== 'undefined' && pedido.abono > 0) {
+        let abonoSummary = document.getElementById('abono-summary');
+        if (!abonoSummary) {
+          abonoSummary = document.createElement('div');
+          abonoSummary.id = 'abono-summary';
+          abonoSummary.className = 'text-sm text-yellow-700 mt-2';
+          if (totalSpan) totalSpan.parentNode.insertBefore(abonoSummary, totalSpan.nextSibling);
+        }
+        abonoSummary.innerHTML = `<p><strong>Abono:</strong> -$${pedido.abono.toLocaleString('es-CO')}</p>`;
+      }
+      // Mostrar descuento si existe
+      if (pedido.descuento && pedido.descuento.amount > 0) {
+        let discountElement = document.getElementById('discount-summary');
+        if (!discountElement) {
+          discountElement = document.createElement('div');
+          discountElement.id = 'discount-summary';
+          discountElement.className = 'text-sm text-blue-700 mt-2';
+          if (totalSpan) totalSpan.parentNode.insertBefore(discountElement, totalSpan.nextSibling);
+        }
+        discountElement.innerHTML = `<p><strong>Descuento:</strong> -$${pedido.descuento.amount.toLocaleString('es-CO')}<br><span class="italic">${pedido.descuento.reason || ''}</span></p>`;
+      }
     }
     // No se cargan datos de cliente
   }

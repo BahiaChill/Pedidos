@@ -1,3 +1,38 @@
+// Limpia completamente el pedido, abono y descuento de la mesa
+function clearOrder() {
+    if (currentOrder.length === 0 && !currentOrderDiscount && !getAbonoActual()) return;
+    if (confirm('¿Está seguro de limpiar el pedido actual?')) {
+        // Limpiar productos
+        currentOrder = [];
+        // Limpiar descuento
+        currentOrderDiscount = null;
+        // Limpiar descuentos por producto
+        if (Array.isArray(currentOrder)) {
+            currentOrder.forEach(item => { if (item && item.descuento) delete item.descuento; });
+        }
+        // Limpiar abono y pedido en localStorage
+        if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
+            clearPedidoMesa(currentTable.id);
+        }
+        // Limpiar UI
+        const discountElement = document.getElementById('discount-summary');
+        if (discountElement) discountElement.innerHTML = '';
+        const abonoElement = document.getElementById('abono-summary');
+        if (abonoElement) abonoElement.innerHTML = '';
+        updateOrderSummary();
+        totalSpan.textContent = '$0';
+        finalizeOrderBtn.disabled = true;
+    }
+}
+
+// Helper para obtener abono actual
+function getAbonoActual() {
+    if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
+        const pedido = getPedidoMesa(currentTable.id);
+        return pedido && typeof pedido.abono === 'number' ? pedido.abono : 0;
+    }
+    return 0;
+}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -23,11 +58,26 @@
     function setMesasState(state) {
       localStorage.setItem('mesas_state', JSON.stringify(state));
     }
-    // Guarda el pedido actual de la mesa
+    // Guarda el pedido actual de la mesa, serializando solo los datos necesarios
     function savePedidoMesa(mesaId, pedido) {
       const state = getMesasState();
       state[mesaId] = state[mesaId] || {};
-      state[mesaId].pedido = pedido;
+      // Serializar solo los datos necesarios de cada producto
+      const safePedido = {
+        ...pedido,
+        items: Array.isArray(pedido.items) ? pedido.items.map(item => ({
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            category: item.product.category || ''
+          },
+          quantity: item.quantity,
+          notes: item.notes || '',
+          descuento: item.descuento || 0
+        })) : []
+      };
+      state[mesaId].pedido = safePedido;
       setMesasState(state);
     }
     // Borra el pedido de la mesa
@@ -36,10 +86,28 @@
       if (state[mesaId]) delete state[mesaId].pedido;
       setMesasState(state);
     }
-    // Obtiene el pedido guardado de la mesa
+    // Obtiene el pedido guardado de la mesa y rehidrata los productos
     function getPedidoMesa(mesaId) {
       const state = getMesasState();
-      return state[mesaId] && state[mesaId].pedido ? state[mesaId].pedido : null;
+      if (state[mesaId] && state[mesaId].pedido) {
+        const pedido = state[mesaId].pedido;
+        // Rehidratar productos (por si se guardaron sin métodos)
+        if (Array.isArray(pedido.items)) {
+          pedido.items = pedido.items.map(item => ({
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              price: item.product.price,
+              category: item.product.category || ''
+            },
+            quantity: item.quantity,
+            notes: item.notes || '',
+            descuento: item.descuento || 0
+          }));
+        }
+        return pedido;
+      }
+      return null;
     }
     </script>
     <style>

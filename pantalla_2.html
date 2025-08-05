@@ -1,38 +1,3 @@
-// Limpia completamente el pedido, abono y descuento de la mesa
-function clearOrder() {
-    if (currentOrder.length === 0 && !currentOrderDiscount && !getAbonoActual()) return;
-    if (confirm('¿Está seguro de limpiar el pedido actual?')) {
-        // Limpiar productos
-        currentOrder = [];
-        // Limpiar descuento
-        currentOrderDiscount = null;
-        // Limpiar descuentos por producto
-        if (Array.isArray(currentOrder)) {
-            currentOrder.forEach(item => { if (item && item.descuento) delete item.descuento; });
-        }
-        // Limpiar abono y pedido en localStorage
-        if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
-            clearPedidoMesa(currentTable.id);
-        }
-        // Limpiar UI
-        const discountElement = document.getElementById('discount-summary');
-        if (discountElement) discountElement.innerHTML = '';
-        const abonoElement = document.getElementById('abono-summary');
-        if (abonoElement) abonoElement.innerHTML = '';
-        updateOrderSummary();
-        totalSpan.textContent = '$0';
-        finalizeOrderBtn.disabled = true;
-    }
-}
-
-// Helper para obtener abono actual
-function getAbonoActual() {
-    if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
-        const pedido = getPedidoMesa(currentTable.id);
-        return pedido && typeof pedido.abono === 'number' ? pedido.abono : 0;
-    }
-    return 0;
-}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1375,34 +1340,41 @@ function getMesasDisponiblesParaMover() {
             }
         }
 
-        // Clear order
+
+        // Limpia completamente el pedido, abono y descuento de la mesa
         function clearOrder() {
-            if (currentOrder.length === 0) return;
+            if (currentOrder.length === 0 && !currentOrderDiscount && !getAbonoActual()) return;
             if (confirm('¿Está seguro de limpiar el pedido actual?')) {
-                orderItems.classList.add('order-item-remove');
-                setTimeout(() => {
-                    currentOrder = [];
-                    updateOrderSummary();
-                    orderItems.classList.remove('order-item-remove');
-                    // Limpiar mesa seleccionada
-                    currentTable = null;
-                    tableSelect.value = '';
-                    currentTableSpan.textContent = '';
-                    // Limpiar descuento
-                    currentOrderDiscount = null;
-                    // Limpiar medio de pago
-                    const paymentMethodSelect = document.getElementById('payment-method') || document.querySelector('#payment-method');
-                    if (paymentMethodSelect) paymentMethodSelect.value = '';
-                    // Limpiar datos del cliente
-                    customerName.value = '';
-                    customerId.value = '';
-                    customerContact.value = '';
-                    if (customerIdType) customerIdType.selectedIndex = 0;
-                    // Limpiar descuento visual en el resumen del pedido
-                    const discountElement = document.getElementById('discount-summary');
-                    if (discountElement) discountElement.innerHTML = '';
-                }, 300);
+                // Limpiar productos
+                currentOrder = [];
+                // Limpiar descuento
+                currentOrderDiscount = null;
+                // Limpiar descuentos por producto
+                if (Array.isArray(currentOrder)) {
+                    currentOrder.forEach(item => { if (item && item.descuento) delete item.descuento; });
+                }
+                // Limpiar abono y pedido en localStorage
+                if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
+                    clearPedidoMesa(currentTable.id);
+                }
+                // Limpiar UI
+                const discountElement = document.getElementById('discount-summary');
+                if (discountElement) discountElement.innerHTML = '';
+                const abonoElement = document.getElementById('abono-summary');
+                if (abonoElement) abonoElement.innerHTML = '';
+                updateOrderSummary();
+                totalSpan.textContent = '$0';
+                finalizeOrderBtn.disabled = true;
             }
+        }
+
+        // Helper para obtener abono actual
+        function getAbonoActual() {
+            if (typeof currentTable !== 'undefined' && currentTable && currentTable.id) {
+                const pedido = getPedidoMesa(currentTable.id);
+                return pedido && typeof pedido.abono === 'number' ? pedido.abono : 0;
+            }
+            return 0;
         }
 
         // Show receipt

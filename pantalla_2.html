@@ -1101,10 +1101,19 @@
                     abono: (typeof currentPedido === 'object' && currentPedido && currentPedido.abono) ? currentPedido.abono : 0,
                     descuento: (typeof currentPedido === 'object' && currentPedido && currentPedido.descuento) ? currentPedido.descuento : 0
                 });
+                // Si nunca se ha guardado (snapshot null) y no se ha hecho ningún cambio, no mostrar advertencia
+                let pedidoInicial = getPedidoMesa(currentTable ? currentTable.id : null);
+                let pedidoInicialStr = pedidoInicial ? JSON.stringify({
+                    items: pedidoInicial.items || [],
+                    abono: pedidoInicial.abono || 0,
+                    descuento: pedidoInicial.descuento || 0
+                }) : null;
                 let hayCambios = false;
                 if (snapshot !== null) {
                     if (snapshot !== actual) hayCambios = true;
-                } else if (currentOrder && currentOrder.length > 0) {
+                } else if (pedidoInicialStr !== null && pedidoInicialStr !== actual) {
+                    hayCambios = true;
+                } else if (currentOrder && currentOrder.length > 0 && pedidoInicialStr === null) {
                     hayCambios = true;
                 }
                 if (hayCambios) {

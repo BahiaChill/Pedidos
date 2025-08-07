@@ -45,8 +45,9 @@
           };
         }).filter(Boolean) : []
       };
-      state[mesaId].pedido = safePedido;
-      setMesasState(state);
+    // Guardar como temporal
+    state[mesaId].pedido_temporal = safePedido;
+    setMesasState(state);
     }
     // Borra el pedido de la mesa
     function clearPedidoMesa(mesaId) {
@@ -57,28 +58,49 @@
     // Obtiene el pedido guardado de la mesa y rehidrata los productos
     function getPedidoMesa(mesaId) {
       const state = getMesasState();
-      if (state[mesaId] && state[mesaId].pedido) {
-        const pedido = state[mesaId].pedido;
-        // Rehidratar productos (por si se guardaron sin métodos)
-        if (Array.isArray(pedido.items)) {
-          pedido.items = pedido.items.map(item => {
-            if (!item || !item.product || typeof item.product.id === 'undefined') return null;
-            return {
-              product: {
-                id: item.product.id,
-                name: item.product.name,
-                price: item.product.price,
-                category: item.product.category || ''
-              },
-              quantity: item.quantity,
-              notes: item.notes || '',
-              descuento: item.descuento || 0
-            };
-          }).filter(Boolean);
-        }
-        return pedido;
-      }
-      return null;
+            // Si hay temporal, devolverlo
+            if (state[mesaId] && state[mesaId].pedido_temporal) {
+                const pedido = state[mesaId].pedido_temporal;
+                if (Array.isArray(pedido.items)) {
+                    pedido.items = pedido.items.map(item => {
+                        if (!item || !item.product || typeof item.product.id === 'undefined') return null;
+                        return {
+                            product: {
+                                id: item.product.id,
+                                name: item.product.name,
+                                price: item.product.price,
+                                category: item.product.category || ''
+                            },
+                            quantity: item.quantity,
+                            notes: item.notes || '',
+                            descuento: item.descuento || 0
+                        };
+                    }).filter(Boolean);
+                }
+                return pedido;
+            }
+            // Si no, devolver el definitivo
+            if (state[mesaId] && state[mesaId].pedido) {
+                const pedido = state[mesaId].pedido;
+                if (Array.isArray(pedido.items)) {
+                    pedido.items = pedido.items.map(item => {
+                        if (!item || !item.product || typeof item.product.id === 'undefined') return null;
+                        return {
+                            product: {
+                                id: item.product.id,
+                                name: item.product.name,
+                                price: item.product.price,
+                                category: item.product.category || ''
+                            },
+                            quantity: item.quantity,
+                            notes: item.notes || '',
+                            descuento: item.descuento || 0
+                        };
+                    }).filter(Boolean);
+                }
+                return pedido;
+            }
+            return null;
     }
     </script>
     <style>
@@ -1093,37 +1115,60 @@
             // Botón volver con advertencia si hay cambios no guardados
             const btnVolver = document.getElementById('btn-volver');
         if (btnVolver) {
-                        btnVolver.addEventListener('click', (e) => {
-                                // Solo mostrar advertencia si NUNCA se presionó 'Guardar Ajustes'
-                                if (!window.__pedidoGuardadoSnapshot) {
-                                        if (!document.getElementById('unsaved-warning-modal')) {
-                                                const modal = document.createElement('div');
-                                                modal.id = 'unsaved-warning-modal';
-                                                modal.className = 'fixed inset-0 flex items-center justify-center z-50';
-                                                modal.style.background = 'rgba(0,0,0,0.4)';
-                                                modal.innerHTML = `
-                                                    <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
-                                                        <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No has guardado el pedido, ¿quieres salir?</h2>
-                                                        <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;">
-                                                            <button id="unsaved-warning-cancel" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
-                                                            <button id="unsaved-warning-exit" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#3b82f6;color:#fff;font-weight:600;">Salir</button>
-                                                        </div>
-                                                    </div>
-                                                `;
-                                                document.body.appendChild(modal);
-                                                document.getElementById('unsaved-warning-cancel').onclick = function() {
-                                                        document.body.removeChild(modal);
-                                                };
-                                                document.getElementById('unsaved-warning-exit').onclick = function() {
-                                                        window.location.href = 'index.html';
-                                                };
-                                                e.preventDefault();
-                                                return;
-                                        }
-                                } else {
-                                        window.location.href = 'index.html';
-                                }
-                        });
+            btnVolver.addEventListener('click', (e) => {
+                // Usar snapshot para detectar cambios desde el último guardado
+                let snapshot = window.__pedidoGuardadoSnapshot || null;
+                let actual = JSON.stringify({
+                    items: currentOrder,
+                    abono: (typeof currentPedido === 'object' && currentPedido && currentPedido.abono) ? currentPedido.abono : 0,
+                    descuento: (typeof currentPedido === 'object' && currentPedido && currentPedido.descuento) ? currentPedido.descuento : 0
+                });
+                // Si nunca se ha guardado (snapshot null), mostrar advertencia solo si hay datos en el pedido
+                let pedidoInicial = getPedidoMesa(currentTable ? currentTable.id : null);
+                let pedidoInicialStr = pedidoInicial ? JSON.stringify({
+                    items: pedidoInicial.items || [],
+                    abono: pedidoInicial.abono || 0,
+                    descuento: pedidoInicial.descuento || 0
+                }) : null;
+                let hayCambios = false;
+                // Solo mostrar advertencia si snapshot es null (nunca se guardó) o snapshot !== actual (hay cambios no guardados)
+                if (snapshot === null) {
+                    // Si hay productos, abono o descuento, advertir
+                    if ((currentOrder && currentOrder.length > 0) || (currentPedido && (currentPedido.abono || currentPedido.descuento))) {
+                        hayCambios = true;
+                    }
+                } else if (snapshot !== actual) {
+                    hayCambios = true;
+                }
+                if (hayCambios) {
+                    if (!document.getElementById('unsaved-warning-modal')) {
+                        // Mostrar modal personalizado solo si no existe
+                        const modal = document.createElement('div');
+                        modal.id = 'unsaved-warning-modal';
+                        modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+                        modal.style.background = 'rgba(0,0,0,0.4)';
+                        modal.innerHTML = `
+                          <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
+                            <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No has guardado el pedido, ¿quieres salir?</h2>
+                            <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;">
+                              <button id="unsaved-warning-cancel" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
+                              <button id="unsaved-warning-exit" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#3b82f6;color:#fff;font-weight:600;">Salir</button>
+                            </div>
+                          </div>
+                        `;
+                        document.body.appendChild(modal);
+                        document.getElementById('unsaved-warning-cancel').onclick = function() {
+                            document.body.removeChild(modal);
+                        };
+                        document.getElementById('unsaved-warning-exit').onclick = function() {
+                            window.location.href = 'index.html';
+                        };
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                window.location.href = 'index.html';
+            });
         }
             // Obtener el número de mesa de la URL
             const params = new URLSearchParams(window.location.search);
@@ -1137,7 +1182,7 @@
             }
             // Event listeners
             productSearch.addEventListener('input', filterProducts);
-            clearOrderBtn.addEventListener('click', clearOrder);
+            // clearOrderBtn.addEventListener('click', clearOrder); // Se maneja solo desde el modal de confirmación
                 // Interceptar limpiar para advertir si no se ha descargado el pedido
                 clearOrderBtn.addEventListener('click', function(e) {
                         // Si no se ha descargado el pedido (no se ha presionado 'Finalizar y Descargar')
@@ -1193,7 +1238,13 @@
                     // Si no hay currentPedido pero hay abono en el pedido guardado, mantenerlo
                     if (typeof pedidoGuardado.abono !== 'undefined') pedidoGuardado.abono = pedidoGuardado.abono;
                 }
-                savePedidoMesa(currentTable.id, pedidoGuardado);
+                                // Al guardar ajustes, pasar el temporal a definitivo
+                                const state = getMesasState();
+                                if (state[currentTable.id] && state[currentTable.id].pedido_temporal) {
+                                    state[currentTable.id].pedido = state[currentTable.id].pedido_temporal;
+                                    setMesasState(state);
+                                }
+                                savePedidoMesa(currentTable.id, pedidoGuardado);
                 // Marcar como guardado
                 window.__pedidoGuardadoSnapshot = JSON.stringify({
                     items: pedidoGuardado.items,
@@ -1794,59 +1845,7 @@ abonoButton.id = 'abono-btn';
 abonoButton.addEventListener('click', showAbonoModal);
 
 // Crear el botón "Pago"
-const pagoButton = document.createElement('button');
-pagoButton.textContent = 'Pago';
-pagoButton.className = 'ml-2 px-4 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition duration-200 font-bold';
-pagoButton.id = 'pago-btn';
-// Aquí puedes agregar el evento para el botón Pago si lo necesitas
-pagoButton.addEventListener('click', function() {
-        // Calcular saldo por pagar
-        let pedidoGuardado = getPedidoMesa(currentTable?.id) || {};
-        let total = 0;
-        let descuento = pedidoGuardado.descuento && pedidoGuardado.descuento.amount ? pedidoGuardado.descuento.amount : 0;
-        let abono = pedidoGuardado.abono || 0;
-        if (Array.isArray(pedidoGuardado.items)) {
-                pedidoGuardado.items.forEach(item => {
-                        if (item.product) total += (item.product.price || 0) * (item.quantity || 0);
-                });
-        }
-        let saldo = total - descuento - abono;
-        // Modal
-        const modal = document.createElement('div');
-        modal.id = 'modal-pago-final';
-        modal.className = 'fixed inset-0 flex items-center justify-center z-50';
-        modal.style.background = 'rgba(0,0,0,0.4)';
-        modal.innerHTML = `
-            <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
-                <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">Indique el medio de pago para el saldo del pedido,<br>una vez pago no se podrá eliminar.<br><span style='font-weight:400;'>Recuerde <b>Finalizar y Guardar</b> el pedido</span></h2>
-                <div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Saldo por pagar: <span style='font-weight:700;'>$${saldo.toLocaleString('es-CO')}</span></div>
-                <label for="pago-medio-final" style="font-size:1rem;font-weight:500;margin-bottom:0.3rem;align-self:flex-start;">¿Qué medio de pago?</label>
-                <select id="pago-medio-final" style="width:100%;padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:0.375rem;margin-bottom:1rem;">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                </select>
-                <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;width:100%;">
-                    <button id="guardar-pago-final" style="flex:1;padding:0.7rem 0;border-radius:0.7rem;background:#2563eb;color:#fff;font-weight:600;font-size:1rem;">Guardar</button>
-                    <button id="cancelar-pago-final" style="flex:1;padding:0.7rem 0;border-radius:0.7rem;background:#eee;font-weight:500;font-size:1rem;">Cancelar</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        document.getElementById('cancelar-pago-final').onclick = function() {
-                document.body.removeChild(modal);
-        };
-        document.getElementById('guardar-pago-final').onclick = function() {
-                const medio = document.getElementById('pago-medio-final').value;
-                // Guardar el pago final en el pedido
-                if (!pedidoGuardado.pagos_finales) pedidoGuardado.pagos_finales = [];
-                pedidoGuardado.pagos_finales.push({ amount: saldo, medio, date: new Date().toISOString() });
-                pedidoGuardado.saldo_pagado = true;
-                savePedidoMesa(currentTable.id, pedidoGuardado);
-                document.body.removeChild(modal);
-                alert('Pago final registrado. Recuerde finalizar y guardar el pedido.');
-                updateOrderSummary();
-        };
-});
+// Botón Pago eliminado. El flujo se mueve a 'Finalizar y Descargar'.
 
 // Crear el botón "Eliminar"
 const removeDiscountButton = document.createElement('button');
@@ -1996,90 +1995,129 @@ function showAbonoModal() {
 }
 
 // Mostrar abono en el resumen del pedido
-function showAbonoSummary(abonoValue) {
-    let abonoSummary = document.getElementById('abono-summary');
-    if (!abonoSummary) {
-        abonoSummary = document.createElement('div');
-        abonoSummary.id = 'abono-summary';
-        abonoSummary.className = 'text-sm text-yellow-700 mt-2';
-        totalSpan.parentNode.insertBefore(abonoSummary, totalSpan.nextSibling);
-    }
-    abonoSummary.innerHTML = `<p><strong>Abono:</strong> -$${abonoValue.toLocaleString('es-CO')}</p>`;
-}
-
-// Ajusté la función de descuento para que se guíe exclusivamente por el valor en $ y el % se adapte automáticamente con decimales.
-function showDiscount() {
-    // Modal de selección: ¿aplicar a total o a referencia?
-    const selectModal = document.createElement('div');
-    selectModal.id = 'discount-select-modal';
-    selectModal.className = 'fixed inset-0 flex items-center justify-center z-50';
-    selectModal.style.background = 'rgba(0,0,0,0.4)';
-    selectModal.innerHTML = `
-      <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
-        <h2 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">¿A qué deseas aplicar el descuento?</h2>
-        <button id="descuento-total-btn" style="width:100%;background:#3b82f6;color:#fff;font-weight:600;padding:0.8rem 0;border-radius:0.7rem;font-size:1rem;">Al total</button>
-        <button id="descuento-producto-btn" style="width:100%;background:#6366f1;color:#fff;font-weight:600;padding:0.8rem 0;border-radius:0.7rem;font-size:1rem;">A referencia de producto</button>
-        <button id="cancelar-descuento-select" style="margin-top:0.5rem;padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
-      </div>
-    `;
-    document.body.appendChild(selectModal);
-
-    document.getElementById('descuento-total-btn').onclick = function() {
-        document.body.removeChild(selectModal);
-        showDiscountForm('total');
-    };
-    document.getElementById('abono-total-btn').onclick = function() {
-        document.body.removeChild(abonoTipoModal);
-        showAbonoModalTotal();
-    };
-    document.getElementById('abono-producto-btn').onclick = function() {
-        document.body.removeChild(abonoTipoModal);
-        showAbonoModalProducto();
-    };
-    document.getElementById('cancelar-abono-tipo').onclick = function() {
-        document.body.removeChild(abonoTipoModal);
-    };
-
-    // Modal tradicional de abono al total
-    function showAbonoModalTotal() {
-        const abonoModal = document.createElement('div');
-        abonoModal.id = 'abono-modal';
-        abonoModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-        // Detectar abono previo
-        let abonoPrevio = 0;
-        if (currentTable && getPedidoMesa(currentTable.id) && typeof getPedidoMesa(currentTable.id).abono === 'number') {
-            abonoPrevio = getPedidoMesa(currentTable.id).abono;
-        }
-        abonoModal.innerHTML = `
-            <div class="bg-white rounded-lg shadow-lg p-6 w-96">
-                <h2 class="text-lg font-bold mb-4">Registrar Abono</h2>
-                <label for="abono-amount" class="block text-sm font-medium text-gray-700 mb-2">¿Cuánto han abonado?</label>
-                <input id="abono-amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-2" placeholder="$" required>
-                <label for="abono-medio-pago" class="block text-sm font-medium text-gray-700 mb-2">¿Qué medio de pago?</label>
-                <select id="abono-medio-pago" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4">
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                </select>
-                <div class="flex justify-end space-x-4">
-                    <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">${abonoPrevio > 0 ? 'Añadir' : 'Aplicar'}</button>
-                    <button id="cancel-abono-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
-                </div>
-                ${abonoPrevio > 0 ? `<div class="mt-2 text-sm text-yellow-700 font-semibold">Abono actual: $${abonoPrevio.toLocaleString('es-CO')}</div>` : ''}
-            </div>
-        `;
-        document.body.appendChild(abonoModal);
-        // Cancelar
-        document.getElementById('cancel-abono-btn').addEventListener('click', () => {
-            document.body.removeChild(abonoModal);
-        });
-        // Aplicar abono
-        document.getElementById('apply-abono-btn').addEventListener('click', () => {
-            const abonoValue = parseFloat(document.getElementById('abono-amount').value);
-            const medioPago = document.getElementById('abono-medio-pago').value;
-            if (isNaN(abonoValue) || abonoValue < 0) {
-                alert('Por favor ingrese un valor de abono válido.');
-                return;
-            }
+                if (!currentTable) {
+                    alert('No hay mesa seleccionada.');
+                    return;
+                }
+                let pedidoGuardado = getPedidoMesa(currentTable.id) || {};
+                let items = Array.isArray(pedidoGuardado.items) ? pedidoGuardado.items : [];
+                let descuento = pedidoGuardado.descuento && pedidoGuardado.descuento.amount ? pedidoGuardado.descuento.amount : 0;
+                let descuentoMotivo = pedidoGuardado.descuento && pedidoGuardado.descuento.reason ? pedidoGuardado.descuento.reason : '';
+                let abono = pedidoGuardado.abono || 0;
+                let abonosDetalle = Array.isArray(pedidoGuardado.abonos_detalle) ? pedidoGuardado.abonos_detalle : [];
+                let total = 0;
+                let saldo = 0;
+                if (Array.isArray(pedidoGuardado.items)) {
+                    pedidoGuardado.items.forEach(item => {
+                        if (item.product) total += (item.product.price || 0) * (item.quantity || 0);
+                    });
+                }
+                saldo = total - descuento - abono;
+                // Mostrar modal de pago antes de descargar
+                const modal = document.createElement('div');
+                modal.id = 'modal-pago-final';
+                modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+                modal.style.background = 'rgba(0,0,0,0.4)';
+                modal.innerHTML = `
+                  <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
+                    <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">Indique el medio de pago para el saldo del pedido,<br>una vez pago no se podrá eliminar.<br><span style='font-weight:400;'>Recuerde <b>Finalizar y Guardar</b> el pedido</span></h2>
+                    <div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Saldo por pagar: <span style='font-weight:700;'>$${saldo.toLocaleString('es-CO')}</span></div>
+                    <label for="pago-medio-final" style="font-size:1rem;font-weight:500;margin-bottom:0.3rem;align-self:flex-start;">¿Qué medio de pago?</label>
+                    <select id="pago-medio-final" style="width:100%;padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:0.375rem;margin-bottom:1rem;">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                    <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;width:100%;">
+                      <button id="descargar-pago-final" style="flex:1;padding:0.7rem 0;border-radius:0.7rem;background:#2563eb;color:#fff;font-weight:600;font-size:1rem;">Descargar</button>
+                      <button id="cancelar-pago-final" style="flex:1;padding:0.7rem 0;border-radius:0.7rem;background:#eee;font-weight:500;font-size:1rem;">Cancelar</button>
+                    </div>
+                  </div>
+                `;
+                document.body.appendChild(modal);
+                document.getElementById('cancelar-pago-final').onclick = function() {
+                    document.body.removeChild(modal);
+                };
+                document.getElementById('descargar-pago-final').onclick = function() {
+                    const medio = document.getElementById('pago-medio-final').value;
+                    // Guardar el pago final en el pedido
+                    if (!pedidoGuardado.pagos_finales) pedidoGuardado.pagos_finales = [];
+                    pedidoGuardado.pagos_finales.push({ amount: saldo, medio, date: new Date().toISOString() });
+                    pedidoGuardado.saldo_pagado = true;
+                    savePedidoMesa(currentTable.id, pedidoGuardado);
+                    document.body.removeChild(modal);
+                    // Descargar PDF
+                    let fechaHora = `${dia} de ${mes} de ${anio} ${hora}:${min}:${seg}`;
+                    const doc = new window.jspdf.jsPDF();
+                    doc.setTextColor('#3d819d');
+                    try {
+                        doc.setFont('The Youngest Serif', 'normal');
+                    } catch (e) {
+                        doc.setFont('serif', 'normal');
+                    }
+                    doc.setFontSize(24);
+                    doc.text('BAHIA CHILL', 105, 18, { align: 'center' });
+                    let y = 28;
+                    doc.setTextColor(0,0,0);
+                    doc.setFont('helvetica','');
+                    doc.setFontSize(14);
+                    doc.text(`Mesa: ${currentTable.label || currentTable.id}`, 10, y);
+                    y += 8;
+                    doc.setFontSize(11);
+                    doc.text(`Fecha y hora: ${fechaHora}`, 10, y);
+                    y += 10;
+                    doc.setFontSize(13);
+                    doc.text('Resumen del Pedido', 10, y);
+                    y += 8;
+                    doc.setFontSize(10);
+                    doc.text('Referencia', 10, y);
+                    doc.text('Cant.', 60, y);
+                    doc.text('Unitario', 80, y);
+                    doc.text('Subtotal', 110, y);
+                    y += 5;
+                    doc.setLineWidth(0.2);
+                    doc.line(10, y, 200, y);
+                    y += 4;
+                    items.forEach(item => {
+                        if (!item.product) return;
+                        let subtotal = (item.product.price || 0) * (item.quantity || 0);
+                        total += subtotal;
+                        doc.text(String(item.product.name).substring(0,20), 10, y);
+                        doc.text(String(item.quantity), 60, y);
+                        doc.text(`$${(item.product.price || 0).toLocaleString('es-CO')}`, 80, y);
+                        doc.text(`$${subtotal.toLocaleString('es-CO')}`, 110, y);
+                        y += 6;
+                        if (y > 270) { doc.addPage(); y = 15; }
+                    });
+                    y += 2;
+                    doc.line(10, y, 200, y);
+                    y += 7;
+                    doc.setFontSize(11);
+                    doc.text(`Subtotal: $${total.toLocaleString('es-CO')}`, 10, y);
+                    y += 6;
+                    if (descuento > 0) {
+                        doc.text(`Descuento: -$${descuento.toLocaleString('es-CO')} (${descuentoMotivo})`, 10, y);
+                        y += 6;
+                    }
+                    if (abono > 0) {
+                        doc.text(`Abono: -$${abono.toLocaleString('es-CO')}`, 10, y);
+                        y += 6;
+                        if (abonosDetalle.length > 0) {
+                            doc.setFontSize(9);
+                            abonosDetalle.forEach((ab, idx) => {
+                                let fecha = ab.date ? new Date(ab.date).toLocaleString('es-CO') : '';
+                                doc.text(`  • $${ab.amount.toLocaleString('es-CO')} - ${ab.medio}${fecha ? ' ('+fecha+')' : ''}`, 12, y);
+                                y += 5;
+                                if (y > 270) { doc.addPage(); y = 15; }
+                            });
+                            doc.setFontSize(11);
+                        }
+                    }
+                    let totalFinal = total - descuento - abono;
+                    doc.setFontSize(13);
+                    doc.text(`Total: $${totalFinal.toLocaleString('es-CO')}`, 10, y);
+                    y += 10;
+                    doc.save(`Pedido_Mesa_${currentTable.id}_${new Date().toISOString().replace(/[:.]/g,'-')}.pdf`);
+                };
             if (!currentTable || !Array.isArray(currentOrder)) {
                 alert('No hay pedido activo.');
                 return;
@@ -2145,11 +2183,13 @@ function showDiscount() {
             `;
         document.body.appendChild(abonoModal);
         // Cancelar
-        document.getElementById('cancel-abono-product-btn').addEventListener('click', () => {
-            document.body.removeChild(abonoModal);
-        });
+        document.getElementById('cancel-abono-product-btn').onclick = function() {
+            if (abonoModal && abonoModal.parentNode) {
+                abonoModal.parentNode.removeChild(abonoModal);
+            }
+        };
         // Aplicar abono por producto
-        document.getElementById('apply-abono-product-btn').addEventListener('click', () => {
+        document.getElementById('apply-abono-product-btn').onclick = function() {
             const select = document.getElementById('abono-product-select');
             const abonoValue = parseFloat(document.getElementById('abono-product-amount').value);
             const medioPago = document.getElementById('abono-product-medio-pago').value;
@@ -2183,9 +2223,11 @@ function showDiscount() {
             // Actualizar el resumen y el total antes de guardar
             updateOrderSummary();
             savePedidoMesa(currentTable.id, pedidoGuardado);
-            document.body.removeChild(abonoModal);
+            if (abonoModal && abonoModal.parentNode) {
+                abonoModal.parentNode.removeChild(abonoModal);
+            }
             alert('Abono registrado para el producto seleccionado.');
-        });
+        };
     // ...existing code...
         // (declaración y uso de discountModal ya realizada arriba, no repetir)
 
@@ -2193,7 +2235,7 @@ function showDiscount() {
         const cancelBtn = discountModal.querySelector('#cancel-discount-btn');
         if (cancelBtn) {
             cancelBtn.onclick = function() {
-                if (discountModal.parentNode) {
+                if (discountModal && discountModal.parentNode) {
                     discountModal.parentNode.removeChild(discountModal);
                 }
             };

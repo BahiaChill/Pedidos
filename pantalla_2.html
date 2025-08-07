@@ -1101,22 +1101,16 @@
                     abono: (typeof currentPedido === 'object' && currentPedido && currentPedido.abono) ? currentPedido.abono : 0,
                     descuento: (typeof currentPedido === 'object' && currentPedido && currentPedido.descuento) ? currentPedido.descuento : 0
                 });
-                // Si nunca se ha guardado (snapshot null), mostrar advertencia solo si hay datos en el pedido
-                let pedidoInicial = getPedidoMesa(currentTable ? currentTable.id : null);
-                let pedidoInicialStr = pedidoInicial ? JSON.stringify({
-                    items: pedidoInicial.items || [],
-                    abono: pedidoInicial.abono || 0,
-                    descuento: pedidoInicial.descuento || 0
-                }) : null;
                 let hayCambios = false;
-                // Solo mostrar advertencia si snapshot es null (nunca se guardó) o snapshot !== actual (hay cambios no guardados)
+                // Solo mostrar advertencia si snapshot existe y es diferente al estado actual
+                if (snapshot !== null && snapshot !== actual) {
+                    hayCambios = true;
+                }
+                // Si nunca se ha guardado (snapshot null), mostrar advertencia solo si hay datos en el pedido
                 if (snapshot === null) {
-                    // Si hay productos, abono o descuento, advertir
                     if ((currentOrder && currentOrder.length > 0) || (currentPedido && (currentPedido.abono || currentPedido.descuento))) {
                         hayCambios = true;
                     }
-                } else if (snapshot !== actual) {
-                    hayCambios = true;
                 }
                 if (hayCambios) {
                     if (!document.getElementById('unsaved-warning-modal')) {
@@ -1126,11 +1120,11 @@
                         modal.className = 'fixed inset-0 flex items-center justify-center z-50';
                         modal.style.background = 'rgba(0,0,0,0.4)';
                         modal.innerHTML = `
-                          <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
-                            <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No has guardado el pedido, ¿quieres salir?</h2>
-                            <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;">
-                              <button id="unsaved-warning-cancel" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
-                              <button id="unsaved-warning-exit" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#3b82f6;color:#fff;font-weight:600;">Salir</button>
+                          <div style=\"background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;\">
+                            <h2 style=\"font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;\">No has guardado el pedido, ¿quieres salir?</h2>
+                            <div style=\"display:flex;gap:1rem;justify-content:center;margin-top:1rem;\">
+                              <button id=\"unsaved-warning-cancel\" style=\"padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;\">Cancelar</button>
+                              <button id=\"unsaved-warning-exit\" style=\"padding:0.5rem 1.2rem;border-radius:0.5rem;background:#3b82f6;color:#fff;font-weight:600;\">Salir</button>
                             </div>
                           </div>
                         `;
@@ -2047,21 +2041,26 @@ function showDiscount() {
     `;
     document.body.appendChild(selectModal);
 
-    document.getElementById('descuento-total-btn').onclick = function() {
-        document.body.removeChild(selectModal);
-        showDiscountForm('total');
-    };
-    document.getElementById('abono-total-btn').onclick = function() {
-        document.body.removeChild(abonoTipoModal);
-        showAbonoModalTotal();
-    };
-    document.getElementById('abono-producto-btn').onclick = function() {
-        document.body.removeChild(abonoTipoModal);
-        showAbonoModalProducto();
-    };
-    document.getElementById('cancelar-abono-tipo').onclick = function() {
-        document.body.removeChild(abonoTipoModal);
-    };
+    const btnDescuentoTotal = document.getElementById('descuento-total-btn');
+    if (btnDescuentoTotal) {
+        btnDescuentoTotal.onclick = function() {
+            document.body.removeChild(selectModal);
+            showDiscountForm('total');
+        };
+    }
+    const btnDescuentoProducto = document.getElementById('descuento-producto-btn');
+    if (btnDescuentoProducto) {
+        btnDescuentoProducto.onclick = function() {
+            document.body.removeChild(selectModal);
+            showDiscountForm('producto');
+        };
+    }
+    const btnCancelar = document.getElementById('cancelar-descuento-select');
+    if (btnCancelar) {
+        btnCancelar.onclick = function() {
+            document.body.removeChild(selectModal);
+        };
+    }
 
     // Modal tradicional de abono al total
     function showAbonoModalTotal() {
@@ -2227,7 +2226,6 @@ function showDiscount() {
                 }
             };
         }
-
         // Botón aplicar descuento al total
         const btnTotal = discountModal.querySelector('#apply-discount-total-btn');
         if (btnTotal) {
@@ -2254,7 +2252,7 @@ function showDiscount() {
                 }
                 savePedidoMesa(currentTable.id, currentPedido);
                 updateOrderSummary();
-                if (discountModal.parentNode) discountModal.parentNode.removeChild(discountModal);
+                if (discountModal && discountModal.parentNode) discountModal.parentNode.removeChild(discountModal);
                 alert('Descuento aplicado al total.');
             };
         }

@@ -1158,45 +1158,13 @@
             }
             // Event listeners
             productSearch.addEventListener('input', filterProducts);
-                        clearOrderBtn.addEventListener('click', function(e) {
-                                // Verificar si se ha descargado el pedido
-                                let descargado = window.__pedidoDescargado || false;
-                                if (!descargado) {
-                                        if (!document.getElementById('unsaved-warning-modal')) {
-                                                const modal = document.createElement('div');
-                                                modal.id = 'unsaved-warning-modal';
-                                                modal.className = 'fixed inset-0 flex items-center justify-center z-50';
-                                                modal.style.background = 'rgba(0,0,0,0.4)';
-                                                modal.innerHTML = `
-                                                    <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
-                                                        <h2 style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">Aún no has descargado el pedido, recuerda descargar TODO lo que se vende. ¿Quieres limpiar la mesa aún así?</h2>
-                                                        <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;">
-                                                            <button id="unsaved-warning-cancel" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#eee;font-weight:500;">Cancelar</button>
-                                                            <button id="unsaved-warning-exit" style="padding:0.5rem 1.2rem;border-radius:0.5rem;background:#3d819d;color:#fff;font-weight:600;">Limpiar</button>
-                                                        </div>
-                                                    </div>
-                                                `;
-                                                document.body.appendChild(modal);
-                                                document.getElementById('unsaved-warning-cancel').onclick = function() {
-                                                        document.body.removeChild(modal);
-                                                };
-                                                document.getElementById('unsaved-warning-exit').onclick = function() {
-                                                        document.body.removeChild(modal);
-                                                        clearOrder();
-                                                };
-                                                e.preventDefault();
-                                                return;
-                                        }
-                                } else {
-                                        clearOrder();
-                                }
-                        });
+            clearOrderBtn.addEventListener('click', clearOrder);
             // Crear botón guardar si no existe
             if (!document.getElementById('save-order-btn')) {
             const saveBtn = document.createElement('button');
             saveBtn.id = 'save-order-btn';
             saveBtn.className = 'w-full py-2 px-4 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition duration-200 mt-2';
-            saveBtn.textContent = 'Guardar Ajustes';
+            saveBtn.textContent = 'Guardar Pedido';
             saveBtn.addEventListener('click', function() {
                 if (!currentTable) {
                     alert('No hay mesa seleccionada.');
@@ -1222,101 +1190,8 @@
                 });
                 alert('Pedido guardado correctamente.');
             });
-            const finalizarBtn = document.createElement('button');
-            finalizarBtn.id = 'finalizar-descargar-btn';
-            finalizarBtn.className = 'w-full py-2 px-4 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition duration-200 mt-2';
-            finalizarBtn.textContent = 'Finalizar y Descargar';
-            finalizarBtn.addEventListener('click', function() {
-                // Marcar como descargado
-                window.__pedidoDescargado = true;
-                if (!currentTable) {
-                    alert('No hay mesa seleccionada.');
-                    return;
-                }
-                let pedidoGuardado = getPedidoMesa(currentTable.id) || {};
-                let items = Array.isArray(pedidoGuardado.items) ? pedidoGuardado.items : [];
-                let descuento = pedidoGuardado.descuento && pedidoGuardado.descuento.amount ? pedidoGuardado.descuento.amount : 0;
-                let descuentoMotivo = pedidoGuardado.descuento && pedidoGuardado.descuento.reason ? pedidoGuardado.descuento.reason : '';
-                let abono = pedidoGuardado.abono || 0;
-                let total = 0;
-                const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-                const now = new Date();
-                const dia = now.getDate();
-                const mes = meses[now.getMonth()];
-                const anio = now.getFullYear();
-                const hora = now.getHours().toString().padStart(2,'0');
-                const min = now.getMinutes().toString().padStart(2,'0');
-                const seg = now.getSeconds().toString().padStart(2,'0');
-                let fechaHora = `${dia} de ${mes} de ${anio} ${hora}:${min}:${seg}`;
-                // Crear PDF con jsPDF
-                const doc = new window.jspdf.jsPDF();
-                // Cargar fuente The Youngest Serif si está disponible
-                // Si no, usar serif por defecto
-                // Color #3d819d
-                doc.setTextColor('#3d819d');
-                try {
-                    // Si la fuente está registrada en jsPDF
-                    doc.setFont('The Youngest Serif', 'normal');
-                } catch (e) {
-                    doc.setFont('serif', 'normal');
-                }
-                doc.setFontSize(24);
-                doc.text('BAHIA CHILL', 105, 18, { align: 'center' });
-                let y = 28;
-                doc.setTextColor(0,0,0);
-                doc.setFont('helvetica','');
-                doc.setFontSize(14);
-                doc.text(`Mesa: ${currentTable.label || currentTable.id}`, 10, y);
-                y += 8;
-                doc.setFontSize(11);
-                doc.text(`Fecha y hora: ${fechaHora}`, 10, y);
-                y += 10;
-                doc.setFontSize(13);
-                doc.text('Resumen del Pedido', 10, y);
-                y += 8;
-                doc.setFontSize(10);
-                doc.text('Referencia', 10, y);
-                doc.text('Cant.', 60, y);
-                doc.text('Unitario', 80, y);
-                doc.text('Subtotal', 110, y);
-                y += 5;
-                doc.setLineWidth(0.2);
-                doc.line(10, y, 200, y);
-                y += 4;
-                items.forEach(item => {
-                    if (!item.product) return;
-                    let subtotal = (item.product.price || 0) * (item.quantity || 0);
-                    total += subtotal;
-                    doc.text(String(item.product.name).substring(0,20), 10, y);
-                    doc.text(String(item.quantity), 60, y);
-                    doc.text(`$${(item.product.price || 0).toLocaleString('es-CO')}`, 80, y);
-                    doc.text(`$${subtotal.toLocaleString('es-CO')}`, 110, y);
-                    y += 6;
-                    if (y > 270) { doc.addPage(); y = 15; }
-                });
-                y += 2;
-                doc.line(10, y, 200, y);
-                y += 7;
-                doc.setFontSize(11);
-                doc.text(`Subtotal: $${total.toLocaleString('es-CO')}`, 10, y);
-                y += 6;
-                if (descuento > 0) {
-                    doc.text(`Descuento: -$${descuento.toLocaleString('es-CO')} (${descuentoMotivo})`, 10, y);
-                    y += 6;
-                }
-                if (abono > 0) {
-                    doc.text(`Abono: -$${abono.toLocaleString('es-CO')}`, 10, y);
-                    y += 6;
-                }
-                let totalFinal = total - descuento - abono;
-                doc.setFontSize(13);
-                doc.text(`Total: $${totalFinal.toLocaleString('es-CO')}`, 10, y);
-                y += 10;
-                doc.save(`Pedido_Mesa_${currentTable.id}_${new Date().toISOString().replace(/[:.]/g,'-')}.pdf`);
-            });
             const btnContainer = clearOrderBtn.parentNode;
             btnContainer.insertBefore(saveBtn, clearOrderBtn.nextSibling);
-            btnContainer.insertBefore(finalizarBtn, saveBtn.nextSibling);
             }
             closeModalBtn.addEventListener('click', closeModal);
             cancelModalBtn.addEventListener('click', closeModal);
@@ -2016,20 +1891,18 @@ function showDiscount() {
         `;
         document.body.appendChild(abonoModal);
         // Cancelar
-        document.getElementById('cancel-abono-btn').onclick = function() {
-            if (document.body.contains(abonoModal)) {
-                document.body.removeChild(abonoModal);
-            }
-        };
+        document.getElementById('cancel-abono-btn').addEventListener('click', () => {
+            document.body.removeChild(abonoModal);
+        });
         // Aplicar abono
-        document.getElementById('apply-abono-btn').onclick = function() {
+        document.getElementById('apply-abono-btn').addEventListener('click', () => {
             const abonoValue = parseFloat(document.getElementById('abono-amount').value);
-            if (isNaN(abonoValue) || abonoValue <= 0) {
+            if (isNaN(abonoValue) || abonoValue < 0) {
                 alert('Por favor ingrese un valor de abono válido.');
                 return;
             }
-            if (!currentTable) {
-                alert('No hay mesa seleccionada.');
+            if (!currentTable || !Array.isArray(currentOrder)) {
+                alert('No hay pedido activo.');
                 return;
             }
             // Obtener el pedido actual guardado (si existe)
@@ -2037,21 +1910,19 @@ function showDiscount() {
             // Sumar el abono nuevo al anterior
             let abonoPrevio = typeof pedidoGuardado.abono === 'number' ? pedidoGuardado.abono : 0;
             let abonoTotal = abonoPrevio + abonoValue;
-            pedidoGuardado.items = Array.isArray(currentOrder) ? currentOrder : [];
-            pedidoGuardado.total = getOrderTotal ? getOrderTotal() : 0;
+            pedidoGuardado.items = currentOrder;
+            pedidoGuardado.total = getOrderTotal();
             pedidoGuardado.abono = abonoTotal;
-            // Actualizar el resumen y guardar
+            // Mostrar abono en el resumen y actualizar totales antes de guardar
             showAbonoSummary(abonoTotal);
             updateOrderSummary();
             savePedidoMesa(currentTable.id, pedidoGuardado);
-            if (document.body.contains(abonoModal)) {
-                document.body.removeChild(abonoModal);
-            }
+            document.body.removeChild(abonoModal);
             // Solo mostrar el mensaje la PRIMERA vez que se añade abono
             if (!abonoPrevio || abonoPrevio === 0) {
                 alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
             }
-        };
+        });
     }
 
     // Modal de abono por producto

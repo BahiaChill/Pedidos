@@ -1591,9 +1591,14 @@ function getMesasDisponiblesParaMover() {
                     currentOrderDiscount = null;
                     if (typeof currentPedido === 'object' && currentPedido) {
                         delete currentPedido.abono;
+                        delete currentPedido.abonos;
                         delete currentPedido.descuento;
                         delete currentPedido.discount;
                         currentPedido.items = [];
+                    }
+                    // Limpiar en localStorage
+                    if (currentTable) {
+                        localStorage.removeItem('pedido_mesa_' + currentTable.id);
                     }
                     // Limpiar visualmente los resúmenes
                     const abonoSummary = document.getElementById('abono-summary');
@@ -1814,7 +1819,7 @@ removeDiscountButton.addEventListener('click', () => {
     document.getElementById('eliminar-abono-btn').onclick = function() {
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
-            currentPedido.abonos = [];
+            delete currentPedido.abonos;
         }
         const abonoSummary = document.getElementById('abono-summary');
         if (abonoSummary) abonoSummary.remove();
@@ -1822,7 +1827,7 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
-                pedido.abonos = [];
+                delete pedido.abonos;
                 localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
@@ -1851,7 +1856,7 @@ removeDiscountButton.addEventListener('click', () => {
         currentOrderDiscount = null;
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
-            currentPedido.abonos = [];
+            delete currentPedido.abonos;
             delete currentPedido.descuento;
             delete currentPedido.discount;
         }
@@ -1863,7 +1868,7 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
-                pedido.abonos = [];
+                delete pedido.abonos;
                 delete pedido.descuento;
                 localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }

@@ -1911,9 +1911,11 @@ function showAbonoModal() {
         }
         // Obtener el pedido actual guardado (si existe)
         let pedidoGuardado = getPedidoMesa(currentTable.id) || {};
-        // Sumar el abono nuevo al anterior
-        let abonoPrevio = typeof pedidoGuardado.abono === 'number' ? pedidoGuardado.abono : 0;
-        let abonoTotal = abonoPrevio + abonoValue;
+        // Usar array para abonos y evitar duplicados
+        if (!Array.isArray(pedidoGuardado.abonos)) pedidoGuardado.abonos = [];
+        pedidoGuardado.abonos.push(abonoValue);
+        // Sumar todos los abonos
+        let abonoTotal = pedidoGuardado.abonos.reduce((sum, ab) => sum + Number(ab), 0);
         pedidoGuardado.items = currentOrder;
         pedidoGuardado.total = getOrderTotal();
         pedidoGuardado.abono = abonoTotal;
@@ -1923,7 +1925,7 @@ function showAbonoModal() {
         updateOrderSummary();
         document.body.removeChild(abonoModal);
         // Solo mostrar el mensaje la PRIMERA vez que se añade abono
-        if (!abonoPrevio || abonoPrevio === 0) {
+        if (pedidoGuardado.abonos.length === 1) {
             alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
         }
     });
@@ -1991,7 +1993,8 @@ function showDiscount() {
 
         const discountModal = document.createElement('div');
         discountModal.id = 'discount-modal';
-        discountModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        discountModal.className = 'fixed inset-0 flex items-center justify-center z-50';
+        discountModal.style.background = 'rgba(0,0,0,0.4)';
         discountModal.innerHTML = `
             <div class="bg-white rounded-lg shadow-lg p-6 w-96">
                 <h2 class="text-lg font-bold mb-4">Aplicar Descuento</h2>

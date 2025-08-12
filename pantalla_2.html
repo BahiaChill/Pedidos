@@ -1174,10 +1174,17 @@
                 pedidoGuardado.items = currentOrder;
                 pedidoGuardado.total = getOrderTotal();
                 if (typeof currentPedido === 'object' && currentPedido) {
-                    // Guardar el abono como el valor actual acumulado
-                    if (typeof currentPedido.abono !== 'undefined') {
+                    // Guardar el array de abonos y el total
+                    if (typeof pedidoGuardado.abonos === 'object' && Array.isArray(pedidoGuardado.abonos)) {
+                        const abonoTotal = pedidoGuardado.abonos.reduce((sum, ab) => sum + Number(ab), 0);
+                        pedidoGuardado.abono = abonoTotal;
+                        currentPedido.abono = abonoTotal;
+                        currentPedido.abonos = pedidoGuardado.abonos;
+                    } else if (typeof currentPedido.abono !== 'undefined') {
                         pedidoGuardado.abono = Number(currentPedido.abono) || 0;
                         currentPedido.abono = pedidoGuardado.abono;
+                        pedidoGuardado.abonos = [pedidoGuardado.abono];
+                        currentPedido.abonos = [pedidoGuardado.abono];
                     }
                     if (typeof currentPedido.descuento !== 'undefined') pedidoGuardado.descuento = currentPedido.descuento;
                 } else {
@@ -1881,10 +1888,10 @@ function showAbonoModal() {
             <label for="abono-amount" class="block text-sm font-medium text-gray-700 mb-2">¿Cuánto han abonado?</label>
             <input id="abono-amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="$" required>
             <div class="flex justify-end space-x-4">
-                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Añadir</button>
+                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">${abonoPrevio > 0 ? 'Añadir' : 'Aplicar'}</button>
                 <button id="cancel-abono-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
             </div>
-            <div class="mt-2 text-sm text-yellow-700 font-semibold">Abono actual: $${abonoPrevio.toLocaleString('es-CO')}</div>
+            ${abonoPrevio > 0 ? `<div class="mt-2 text-sm text-yellow-700 font-semibold">Abono actual: $${abonoPrevio.toLocaleString('es-CO')}</div>` : ''}
         </div>
     `;
     document.body.appendChild(abonoModal);
@@ -1907,9 +1914,11 @@ function showAbonoModal() {
         }
         // Obtener el pedido actual guardado (si existe)
         let pedidoGuardado = getPedidoMesa(currentTable.id) || {};
-        // Sumar el abono digitado al abono previo
-        let abonoPrevio = typeof pedidoGuardado.abono === 'number' ? pedidoGuardado.abono : 0;
-        let abonoTotal = abonoPrevio + abonoValue;
+        // Usar array para abonos y evitar duplicados
+        if (!Array.isArray(pedidoGuardado.abonos)) pedidoGuardado.abonos = [];
+        pedidoGuardado.abonos.push(abonoValue);
+        // Sumar todos los abonos
+        let abonoTotal = pedidoGuardado.abonos.reduce((sum, ab) => sum + Number(ab), 0);
         pedidoGuardado.items = currentOrder;
         pedidoGuardado.total = getOrderTotal();
         pedidoGuardado.abono = abonoTotal;
@@ -1918,7 +1927,8 @@ function showAbonoModal() {
         showAbonoSummary(abonoTotal);
         updateOrderSummary();
         document.body.removeChild(abonoModal);
-        if (abonoPrevio === 0) {
+        // Solo mostrar el mensaje la PRIMERA vez que se añade abono
+        if (pedidoGuardado.abonos.length === 1) {
             alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
         }
     });

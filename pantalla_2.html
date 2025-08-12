@@ -1814,6 +1814,7 @@ removeDiscountButton.addEventListener('click', () => {
     document.getElementById('eliminar-abono-btn').onclick = function() {
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
+            currentPedido.abonos = [];
         }
         const abonoSummary = document.getElementById('abono-summary');
         if (abonoSummary) abonoSummary.remove();
@@ -1821,7 +1822,8 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
-                savePedidoMesa(currentMesaId, pedido);
+                pedido.abonos = [];
+                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
         updateOrderSummary();
@@ -1839,7 +1841,7 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.descuento;
-                savePedidoMesa(currentMesaId, pedido);
+                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
         updateOrderSummary();
@@ -1849,6 +1851,7 @@ removeDiscountButton.addEventListener('click', () => {
         currentOrderDiscount = null;
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
+            currentPedido.abonos = [];
             delete currentPedido.descuento;
             delete currentPedido.discount;
         }
@@ -1860,8 +1863,9 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
+                pedido.abonos = [];
                 delete pedido.descuento;
-                savePedidoMesa(currentMesaId, pedido);
+                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
         updateOrderSummary();

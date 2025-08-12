@@ -798,14 +798,16 @@
         const div = document.createElement('div');
         div.className = 'flex flex-col border-b py-2';
         div.innerHTML = `
-          <div class="flex justify-between items-center">
-            <span>${nombre}</span>
-            <span>x${cantidad}</span>
-          </div>
-          <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
-            <span>Unitario: $${precioUnitario.toLocaleString('es-CO')}</span>
-            <span class="total-ref-item">${''}</span>
-          </div>
+                    <div class="grid grid-cols-4 gap-0 items-center">
+                        <span class="col-span-2">${nombre}</span>
+                        <span class="text-center">x${cantidad}</span>
+                        <span class="text-right">$${(precioUnitario * cantidad).toLocaleString('es-CO')}</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-0 items-center text-xs text-gray-500 mt-1">
+                        <span class="col-span-2"></span>
+                        <span class="text-center">Unitario: $${precioUnitario.toLocaleString('es-CO')}</span>
+                        <span class="text-right">Subtotal: $${(precioUnitario * cantidad).toLocaleString('es-CO')}</span>
+                    </div>
         `;
         orderItemsDiv.appendChild(div);
       });
@@ -1174,13 +1176,16 @@
                 pedidoGuardado.items = currentOrder;
                 pedidoGuardado.total = getOrderTotal();
                 if (typeof currentPedido === 'object' && currentPedido) {
-                    // Si el abono fue modificado, guardar el nuevo valor
-                    if (typeof currentPedido.abono !== 'undefined') {
-                        // Sumar el abono actual al acumulado
-                        let abonoPrevio = Number(pedidoGuardado.abono) || 0;
-                        let abonoNuevo = Number(currentPedido.abono) || 0;
-                        pedidoGuardado.abono = abonoPrevio + abonoNuevo;
-                        currentPedido.abono = pedidoGuardado.abono; // Actualiza el pedido actual para mostrar el acumulado
+                    // Guardar el abono como acumulado, evitando duplicados
+                    if (typeof currentPedido.abonos === 'object' && Array.isArray(currentPedido.abonos)) {
+                        // Si hay array de abonos, sumarlos y guardar el total
+                        const abonoTotal = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
+                        pedidoGuardado.abono = abonoTotal;
+                        currentPedido.abono = abonoTotal;
+                    } else if (typeof currentPedido.abono !== 'undefined') {
+                        // Si solo hay un abono, guardar ese valor
+                        pedidoGuardado.abono = Number(currentPedido.abono) || 0;
+                        currentPedido.abono = pedidoGuardado.abono;
                     }
                     if (typeof currentPedido.descuento !== 'undefined') pedidoGuardado.descuento = currentPedido.descuento;
                 } else {
@@ -2086,7 +2091,15 @@ function showDiscount() {
         // Se ejecutará según el tipo seleccionado
     }
 
-    document.body.appendChild(discountModal);
+    // Declarar discountModal fuera para que sea accesible
+    let discountModal;
+    if (!discountModal) {
+        discountModal = document.createElement('div');
+        discountModal.id = 'discount-modal';
+        discountModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        // ...aquí va el innerHTML y lógica de creación del modal...
+        document.body.appendChild(discountModal);
+    }
 
                          // Sincronizar los campos de cantidad y porcentaje
     const discountAmountInput = document.getElementById('discount-amount');

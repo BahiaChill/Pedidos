@@ -798,16 +798,14 @@
         const div = document.createElement('div');
         div.className = 'flex flex-col border-b py-2';
         div.innerHTML = `
-                    <div class="grid grid-cols-4 gap-0 items-center">
-                        <span class="col-span-2">${nombre}</span>
-                        <span class="text-center">x${cantidad}</span>
-                        <span class="text-right">$${(precioUnitario * cantidad).toLocaleString('es-CO')}</span>
-                    </div>
-                    <div class="grid grid-cols-4 gap-0 items-center text-xs text-gray-500 mt-1">
-                        <span class="col-span-2"></span>
-                        <span class="text-center">Unitario: $${precioUnitario.toLocaleString('es-CO')}</span>
-                        <span class="text-right">Subtotal: $${(precioUnitario * cantidad).toLocaleString('es-CO')}</span>
-                    </div>
+                                <div class="flex justify-between items-center">
+                                    <span>${nombre}</span>
+                                    <span>x${cantidad}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-gray-500 mt-1">
+                                    <span>Unitario: $${precioUnitario.toLocaleString('es-CO')}</span>
+                                    <span class="total-ref-item">${''}</span>
+                                </div>
         `;
         orderItemsDiv.appendChild(div);
       });
@@ -1176,14 +1174,8 @@
                 pedidoGuardado.items = currentOrder;
                 pedidoGuardado.total = getOrderTotal();
                 if (typeof currentPedido === 'object' && currentPedido) {
-                    // Guardar el abono como acumulado, evitando duplicados
-                    if (typeof currentPedido.abonos === 'object' && Array.isArray(currentPedido.abonos)) {
-                        // Si hay array de abonos, sumarlos y guardar el total
-                        const abonoTotal = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
-                        pedidoGuardado.abono = abonoTotal;
-                        currentPedido.abono = abonoTotal;
-                    } else if (typeof currentPedido.abono !== 'undefined') {
-                        // Si solo hay un abono, guardar ese valor
+                    // Guardar el abono como el valor actual acumulado
+                    if (typeof currentPedido.abono !== 'undefined') {
                         pedidoGuardado.abono = Number(currentPedido.abono) || 0;
                         currentPedido.abono = pedidoGuardado.abono;
                     }
@@ -1272,7 +1264,11 @@
                                                 doc.text('Resumen del Pedido', 105, 50, {align:'center'});
                                                 doc.setFont('helvetica', 'normal');
                                                 doc.setFontSize(11);
-                                                doc.text('Referencia    Cant.    Unitario    Subtotal', 15, 60);
+                                                // Encabezado alineado en columnas invisibles
+                                                doc.text('Referencia', 15, 60);
+                                                doc.text('Cant.', 80, 60);
+                                                doc.text('Unitario', 105, 60);
+                                                doc.text('Subtotal', 150, 60);
                                                 let y = 68;
                                                 rows.forEach(r => {
                                                     doc.text(`${r.nombre}`, 15, y);
@@ -1885,10 +1881,10 @@ function showAbonoModal() {
             <label for="abono-amount" class="block text-sm font-medium text-gray-700 mb-2">¿Cuánto han abonado?</label>
             <input id="abono-amount" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-4" placeholder="$" required>
             <div class="flex justify-end space-x-4">
-                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">${abonoPrevio > 0 ? 'Añadir' : 'Aplicar'}</button>
+                <button id="apply-abono-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Añadir</button>
                 <button id="cancel-abono-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded">Cancelar</button>
             </div>
-            ${abonoPrevio > 0 ? `<div class="mt-2 text-sm text-yellow-700 font-semibold">Abono actual: $${abonoPrevio.toLocaleString('es-CO')}</div>` : ''}
+            <div class="mt-2 text-sm text-yellow-700 font-semibold">Abono actual: $${abonoPrevio.toLocaleString('es-CO')}</div>
         </div>
     `;
     document.body.appendChild(abonoModal);
@@ -1911,11 +1907,9 @@ function showAbonoModal() {
         }
         // Obtener el pedido actual guardado (si existe)
         let pedidoGuardado = getPedidoMesa(currentTable.id) || {};
-        // Usar array para abonos y evitar duplicados
-        if (!Array.isArray(pedidoGuardado.abonos)) pedidoGuardado.abonos = [];
-        pedidoGuardado.abonos.push(abonoValue);
-        // Sumar todos los abonos
-        let abonoTotal = pedidoGuardado.abonos.reduce((sum, ab) => sum + Number(ab), 0);
+        // Sumar el abono digitado al abono previo
+        let abonoPrevio = typeof pedidoGuardado.abono === 'number' ? pedidoGuardado.abono : 0;
+        let abonoTotal = abonoPrevio + abonoValue;
         pedidoGuardado.items = currentOrder;
         pedidoGuardado.total = getOrderTotal();
         pedidoGuardado.abono = abonoTotal;
@@ -1924,8 +1918,7 @@ function showAbonoModal() {
         showAbonoSummary(abonoTotal);
         updateOrderSummary();
         document.body.removeChild(abonoModal);
-        // Solo mostrar el mensaje la PRIMERA vez que se añade abono
-        if (pedidoGuardado.abonos.length === 1) {
+        if (abonoPrevio === 0) {
             alert('Abono registrado. El color de la mesa cambiará en la pantalla principal si hay saldo pendiente.');
         }
     });

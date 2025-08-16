@@ -1022,7 +1022,7 @@
             { id: 3, name: "Aromatica", price: 2500, category: "cerveza" },
             { id: 4, name: "Coronita", price: 5000, category: "cerveza" },
             { id: 5, name: "Stella Artois", price: 10000, category: "cerveza" },
-            { id: 6, name: "Media Lider", price: 45000, category: "licor" },
+            { id: 6, name: "Media Lider", price: 50000, category: "licor" },
             { id: 7, name: "Lider", price: 95000, category: "licor" },
             { id: 8, name: "Combo Ron Boyaca (six andina y coca cola)", price: 100000, category: "licor" },
             { id: 9, name: "Buchanan's", price: 230000, category: "licor" },
@@ -1060,9 +1060,7 @@
             { id: 41, name: "Capuccino", price: 6400, category: "bebidas" },
             { id: 42, name: "Manzanares Amarillo", price: 110000, category: "licor" },
             { id: 43, name: "Media Manzanares Amarillo", price: 63000, category: "licor" },
-            { id: 44, name: "Manzanares Amarillo", price: 110000, category: "licor" },
-            { id: 45, name: "Andina Light", price: 3000, category: "licor" },
-            { id: 44, name: "Jack Daniel's Honney", price: 200000, category: "licor" }
+            { id: 44, name: "Manzanares Amarillo", price: 110000, category: "licor" }
 
         ];
 
@@ -1177,15 +1175,11 @@
                 pedidoGuardado.total = getOrderTotal();
                 if (typeof currentPedido === 'object' && currentPedido) {
                     // Guardar el array de abonos y el total
-                    if (Array.isArray(currentPedido.abonos) && currentPedido.abonos.length === 0) {
-                        // Si el array de abonos está vacío, eliminar abono y abonos del guardado
-                        delete pedidoGuardado.abono;
-                        delete pedidoGuardado.abonos;
-                    } else if (typeof currentPedido.abonos === 'object' && Array.isArray(currentPedido.abonos)) {
-                        const abonoTotal = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
+                    if (typeof pedidoGuardado.abonos === 'object' && Array.isArray(pedidoGuardado.abonos)) {
+                        const abonoTotal = pedidoGuardado.abonos.reduce((sum, ab) => sum + Number(ab), 0);
                         pedidoGuardado.abono = abonoTotal;
-                        pedidoGuardado.abonos = currentPedido.abonos;
                         currentPedido.abono = abonoTotal;
+                        currentPedido.abonos = pedidoGuardado.abonos;
                     } else if (typeof currentPedido.abono !== 'undefined') {
                         pedidoGuardado.abono = Number(currentPedido.abono) || 0;
                         currentPedido.abono = pedidoGuardado.abono;
@@ -1597,9 +1591,14 @@ function getMesasDisponiblesParaMover() {
                     currentOrderDiscount = null;
                     if (typeof currentPedido === 'object' && currentPedido) {
                         delete currentPedido.abono;
+                        delete currentPedido.abonos;
                         delete currentPedido.descuento;
                         delete currentPedido.discount;
                         currentPedido.items = [];
+                    }
+                    // Limpiar en localStorage
+                    if (currentTable) {
+                        localStorage.removeItem('pedido_mesa_' + currentTable.id);
                     }
                     // Limpiar visualmente los resúmenes
                     const abonoSummary = document.getElementById('abono-summary');
@@ -1820,6 +1819,7 @@ removeDiscountButton.addEventListener('click', () => {
     document.getElementById('eliminar-abono-btn').onclick = function() {
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
+            delete currentPedido.abonos;
         }
         const abonoSummary = document.getElementById('abono-summary');
         if (abonoSummary) abonoSummary.remove();
@@ -1827,7 +1827,8 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
-                savePedidoMesa(currentMesaId, pedido);
+                delete pedido.abonos;
+                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
         updateOrderSummary();
@@ -1845,7 +1846,7 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.descuento;
-                savePedidoMesa(currentMesaId, pedido);
+                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
         updateOrderSummary();
@@ -1855,6 +1856,7 @@ removeDiscountButton.addEventListener('click', () => {
         currentOrderDiscount = null;
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
+            delete currentPedido.abonos;
             delete currentPedido.descuento;
             delete currentPedido.discount;
         }
@@ -1866,8 +1868,9 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
+                delete pedido.abonos;
                 delete pedido.descuento;
-                savePedidoMesa(currentMesaId, pedido);
+                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
             }
         }
         updateOrderSummary();

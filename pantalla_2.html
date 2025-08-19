@@ -1184,30 +1184,26 @@
                 pedidoGuardado.items = currentOrder;
                 pedidoGuardado.total = getOrderTotal();
                 if (typeof currentPedido === 'object' && currentPedido) {
-                    // Inicializar abonos si no existe
+                    // Mejorar manejo de abonos: siempre usar array y sumar todos
                     if (!Array.isArray(currentPedido.abonos)) {
+                        // Si no existe el array, crearlo con el abono actual si existe
                         if (typeof currentPedido.abono === 'number' && currentPedido.abono > 0) {
-                            currentPedido.abonos = [currentPedido.abono];
+                            currentPedido.abonos = [Number(currentPedido.abono)];
                         } else {
                             currentPedido.abonos = [];
                         }
                     }
-                    // Si se añadió un abono nuevo, asegúrate que esté en el array
-                    if (typeof currentPedido.abono === 'number' && currentPedido.abono > 0) {
-                        // Si el total de abonos no coincide con el array, actualiza el array
+                    // Si el array está vacío, eliminar abono y abonos del guardado
+                    if (currentPedido.abonos.length === 0) {
+                        delete pedidoGuardado.abono;
+                        delete pedidoGuardado.abonos;
+                    } else {
+                        // Sumar todos los abonos
                         const abonoTotal = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
-                        if (abonoTotal !== currentPedido.abono) {
-                            // Si el abono no está en el array, lo agregamos
-                            if (!currentPedido.abonos.includes(currentPedido.abono)) {
-                                currentPedido.abonos.push(currentPedido.abono);
-                            }
-                        }
+                        pedidoGuardado.abono = abonoTotal;
+                        pedidoGuardado.abonos = [...currentPedido.abonos];
+                        currentPedido.abono = abonoTotal;
                     }
-                    // Calcular el total de abonos
-                    const abonoTotal = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
-                    pedidoGuardado.abono = abonoTotal;
-                    pedidoGuardado.abonos = currentPedido.abonos;
-                    currentPedido.abono = abonoTotal;
                     if (typeof currentPedido.descuento !== 'undefined') pedidoGuardado.descuento = currentPedido.descuento;
                 } else {
                     // Si no hay currentPedido pero hay abono en el pedido guardado, mantenerlo

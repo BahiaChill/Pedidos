@@ -771,6 +771,19 @@
   // --- Ejemplo de integración con el resto del código ---
   // Llama a onPedidoChange(pedido) cada vez que el pedido cambie (agregar, quitar, modificar items)
   // Llama a onPedidoClear() cuando se limpie/finalice el pedido
+// --- Añadir abono de forma segura y guardar automáticamente ---
+function addAbonoSeguro(monto) {
+    if (!currentPedido) return;
+    if (!Array.isArray(currentPedido.abonos)) {
+        currentPedido.abonos = [];
+    }
+    const abonoNum = Number(monto);
+    if (!isNaN(abonoNum) && abonoNum > 0) {
+        currentPedido.abonos.push(abonoNum);
+        currentPedido.abono = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
+        savePedidoMesa(currentMesaId, currentPedido);
+    }
+}
 
   // Implementa cargarPedidoEnUI para poblar la UI con los datos guardados
   function cargarPedidoEnUI(pedido) {

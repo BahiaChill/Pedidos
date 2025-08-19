@@ -1060,7 +1060,17 @@
             { id: 41, name: "Capuccino", price: 6400, category: "bebidas" },
             { id: 42, name: "Manzanares Amarillo", price: 110000, category: "licor" },
             { id: 43, name: "Media Manzanares Amarillo", price: 63000, category: "licor" },
-            { id: 44, name: "Manzanares Amarillo", price: 110000, category: "licor" }
+            { id: 44, name: "Manzanares Amarillo", price: 110000, category: "licor" },
+            { id: 45, name: "Club Colombia Dorada", price: 5500, category: "licor" },
+            { id: 46, name: "Club Colombia Negra", price: 5500, category: "licor" },
+            { id: 47, name: "Club Colombia Roja", price: 5500, category: "licor" },
+            { id: 48, name: "Bom Bom Bun", price: 700, category: "licor" },
+            { id: 49, name: "Jack Daniel's Honey", price: 240000, category: "licor" },
+            { id: 50, name: "Tecate", price: 3000, category: "licor" },
+            { id: 51, name: "Vape Mediano", price: 50000, category: "licor" },
+            { id: 52, name: "Vape Grande", price: 85000, category: "licor" },
+            { id: 52, name: "Ron Boyaca", price: 110000, category: "licor" }
+
 
         ];
 
@@ -1175,11 +1185,15 @@
                 pedidoGuardado.total = getOrderTotal();
                 if (typeof currentPedido === 'object' && currentPedido) {
                     // Guardar el array de abonos y el total
-                    if (typeof pedidoGuardado.abonos === 'object' && Array.isArray(pedidoGuardado.abonos)) {
-                        const abonoTotal = pedidoGuardado.abonos.reduce((sum, ab) => sum + Number(ab), 0);
+                    if (Array.isArray(currentPedido.abonos) && currentPedido.abonos.length === 0) {
+                        // Si el array de abonos está vacío, eliminar abono y abonos del guardado
+                        delete pedidoGuardado.abono;
+                        delete pedidoGuardado.abonos;
+                    } else if (typeof currentPedido.abonos === 'object' && Array.isArray(currentPedido.abonos)) {
+                        const abonoTotal = currentPedido.abonos.reduce((sum, ab) => sum + Number(ab), 0);
                         pedidoGuardado.abono = abonoTotal;
+                        pedidoGuardado.abonos = currentPedido.abonos;
                         currentPedido.abono = abonoTotal;
-                        currentPedido.abonos = pedidoGuardado.abonos;
                     } else if (typeof currentPedido.abono !== 'undefined') {
                         pedidoGuardado.abono = Number(currentPedido.abono) || 0;
                         currentPedido.abono = pedidoGuardado.abono;
@@ -1532,8 +1546,8 @@
         }
 // Definir getMesasDisponiblesParaMover para evitar error JS en mover mesa
 function getMesasDisponiblesParaMover() {
-    // Devuelve las mesas (1-10) que no son la actual y no tienen pedido activo
-    const mesas = [1,2,3,4,5,6,7,8,9,10];
+    // Devuelve las mesas (1-10, E.1, E.2) que no son la actual y no tienen pedido activo
+    const mesas = [1,2,3,4,5,6,7,8,9,10,"E.1","E.2"];
     if (!currentMesaId) return mesas;
     const state = getMesasState();
     return mesas.filter(mesaId => String(mesaId) !== String(currentMesaId) && (!state[mesaId] || !state[mesaId].pedido || !state[mesaId].pedido.items || state[mesaId].pedido.items.length === 0));
@@ -1591,14 +1605,9 @@ function getMesasDisponiblesParaMover() {
                     currentOrderDiscount = null;
                     if (typeof currentPedido === 'object' && currentPedido) {
                         delete currentPedido.abono;
-                        delete currentPedido.abonos;
                         delete currentPedido.descuento;
                         delete currentPedido.discount;
                         currentPedido.items = [];
-                    }
-                    // Limpiar en localStorage
-                    if (currentTable) {
-                        localStorage.removeItem('pedido_mesa_' + currentTable.id);
                     }
                     // Limpiar visualmente los resúmenes
                     const abonoSummary = document.getElementById('abono-summary');
@@ -1819,7 +1828,6 @@ removeDiscountButton.addEventListener('click', () => {
     document.getElementById('eliminar-abono-btn').onclick = function() {
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
-            delete currentPedido.abonos;
         }
         const abonoSummary = document.getElementById('abono-summary');
         if (abonoSummary) abonoSummary.remove();
@@ -1827,8 +1835,7 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
-                delete pedido.abonos;
-                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
+                savePedidoMesa(currentMesaId, pedido);
             }
         }
         updateOrderSummary();
@@ -1846,7 +1853,7 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.descuento;
-                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
+                savePedidoMesa(currentMesaId, pedido);
             }
         }
         updateOrderSummary();
@@ -1856,7 +1863,6 @@ removeDiscountButton.addEventListener('click', () => {
         currentOrderDiscount = null;
         if (typeof currentPedido === 'object' && currentPedido) {
             delete currentPedido.abono;
-            delete currentPedido.abonos;
             delete currentPedido.descuento;
             delete currentPedido.discount;
         }
@@ -1868,9 +1874,8 @@ removeDiscountButton.addEventListener('click', () => {
             const pedido = getPedidoMesa(currentMesaId);
             if (pedido) {
                 delete pedido.abono;
-                delete pedido.abonos;
                 delete pedido.descuento;
-                localStorage.setItem('pedido_mesa_' + currentMesaId, JSON.stringify(pedido));
+                savePedidoMesa(currentMesaId, pedido);
             }
         }
         updateOrderSummary();

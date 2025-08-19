@@ -1600,45 +1600,88 @@ function getMesasDisponiblesParaMover() {
 
         // Clear order
         function clearOrder() {
-            if (currentOrder.length === 0) return;
-            if (confirm('¿Está seguro de limpiar el pedido actual?')) {
-                orderItems.classList.add('order-item-remove');
-                setTimeout(() => {
-                    // Limpiar todo: productos, abonos, descuentos, subtotal, etc.
-                    currentOrder = [];
-                    currentOrderDiscount = null;
-                    if (typeof currentPedido === 'object' && currentPedido) {
-                        delete currentPedido.abono;
-                        delete currentPedido.descuento;
-                        delete currentPedido.discount;
-                        currentPedido.items = [];
-                    }
-                    // Limpiar visualmente los resúmenes
-                    const abonoSummary = document.getElementById('abono-summary');
-                    if (abonoSummary) abonoSummary.remove();
-                    const discountElement = document.getElementById('discount-summary');
-                    if (discountElement) discountElement.remove();
-                    const subtotalDiv = document.getElementById('subtotal-summary');
-                    if (subtotalDiv) subtotalDiv.remove();
-                    updateOrderSummary();
-                    orderItems.classList.remove('order-item-remove');
-                    // Limpiar mesa seleccionada (dejarla libre/azul)
-                    currentTable = null;
-                    if (typeof tableSelect !== 'undefined' && tableSelect) tableSelect.value = '';
-                    currentTableSpan.textContent = '';
-                    // Limpiar medio de pago
-                    const paymentMethodSelect = document.getElementById('payment-method') || document.querySelector('#payment-method');
-                    if (paymentMethodSelect) paymentMethodSelect.value = '';
-                    // Limpiar datos del cliente
-                    if (typeof customerName !== 'undefined') customerName.value = '';
-                    if (typeof customerId !== 'undefined') customerId.value = '';
-                    if (typeof customerContact !== 'undefined') customerContact.value = '';
-                    if (typeof customerIdType !== 'undefined' && customerIdType) customerIdType.selectedIndex = 0;
-                    // Limpiar en localStorage
-                    if (currentMesaId) clearPedidoMesa(currentMesaId);
-                }, 300);
-            }
-        }
+                        if (currentOrder.length === 0) return;
+                        // Verificar si se descargó el PDF (bandera en pedido)
+                        const mesaId = currentMesaId || (currentTable && currentTable.id) || '';
+                        const pedido = typeof getPedidoMesa === 'function' ? getPedidoMesa(mesaId) : currentPedido;
+                        let descargado = false;
+                        if (pedido && pedido.descargadoPDF) {
+                            descargado = true;
+                        }
+                        if (!descargado) {
+                            // Mostrar modal personalizado
+                            if (!document.getElementById('modal-descarga-pendiente')) {
+                                const modal = document.createElement('div');
+                                modal.id = 'modal-descarga-pendiente';
+                                modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+                                modal.style.background = 'rgba(0,0,0,0.4)';
+                                modal.innerHTML = `
+                                    <div style="background:white;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
+                                        <h2 style="font-size:1.1rem;font-weight:700;text-align:center;">Aún no has descargado el pedido, ¿estás seguro de limpiar?</h2>
+                                        <div style="display:flex;flex-direction:column;gap:0.7rem;width:100%;">
+                                            <button id="btn-limpiar-pedido" style="background:#d32f2f;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-weight:700;font-size:1.1rem;padding:0.7rem 0;border:none;border-radius:0.7rem;cursor:pointer;margin-bottom:0.5rem;">LIMPIAR</button>
+                                            <button id="btn-cancelar-limpiar" style="background:#e0e0e0;color:#333;font-family:'Bebas Neue',Arial,sans-serif;font-weight:700;font-size:1.1rem;padding:0.7rem 0;border:none;border-radius:0.7rem;cursor:pointer;">CANCELAR</button>
+                                        </div>
+                                    </div>
+                                `;
+                                document.body.appendChild(modal);
+                                document.getElementById('btn-cancelar-limpiar').onclick = function() {
+                                    document.body.removeChild(modal);
+                                };
+                                document.getElementById('btn-limpiar-pedido').onclick = function() {
+                                    document.body.removeChild(modal);
+                                    limpiarPedidoCompleto();
+                                };
+                                return;
+                            }
+                        }
+                        // Si ya se descargó, limpiar normalmente
+                        limpiarPedidoCompleto();
+                }
+
+                function limpiarPedidoCompleto() {
+                        orderItems.classList.add('order-item-remove');
+                        setTimeout(() => {
+                                // Limpiar todo: productos, abonos, descuentos, subtotal, etc.
+                                currentOrder = [];
+                                currentOrderDiscount = null;
+                                if (typeof currentPedido === 'object' && currentPedido) {
+                                        delete currentPedido.abono;
+                                        delete currentPedido.descuento;
+                                        delete currentPedido.discount;
+                                        currentPedido.items = [];
+                                }
+                                // Limpiar visualmente los resúmenes
+                                const abonoSummary = document.getElementById('abono-summary');
+                                if (abonoSummary) abonoSummary.remove();
+                                const discountElement = document.getElementById('discount-summary');
+                                if (discountElement) discountElement.remove();
+                                const subtotalDiv = document.getElementById('subtotal-summary');
+                                if (subtotalDiv) subtotalDiv.remove();
+                                updateOrderSummary();
+                                orderItems.classList.remove('order-item-remove');
+                                // Limpiar mesa seleccionada (dejarla libre/azul)
+                                currentTable = null;
+                                if (typeof tableSelect !== 'undefined' && tableSelect) tableSelect.value = '';
+                                currentTableSpan.textContent = '';
+                                // Limpiar medio de pago
+                                const paymentMethodSelect = document.getElementById('payment-method') || document.querySelector('#payment-method');
+                                if (paymentMethodSelect) paymentMethodSelect.value = '';
+                                // Limpiar datos del cliente
+                                if (typeof customerName !== 'undefined') customerName.value = '';
+                                if (typeof customerId !== 'undefined') customerId.value = '';
+                                if (typeof customerContact !== 'undefined') customerContact.value = '';
+                                if (typeof customerIdType !== 'undefined' && customerIdType) customerIdType.selectedIndex = 0;
+                                // Limpiar en localStorage
+                                if (currentMesaId) clearPedidoMesa(currentMesaId);
+                        }, 300);
+                }
+                                                                                                // Marcar pedido como descargado
+                                                                                                if (typeof pedido === 'object') {
+                                                                                                    pedido.descargadoPDF = true;
+                                                                                                    savePedidoMesa(mesaNum, pedido);
+                                                                                                }
+
 
         // Show receipt
         function showReceipt(paymentMethod = null) {

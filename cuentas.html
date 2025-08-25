@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuentas - Bahia Chill</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue:wght@700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: #fff;
+      margin: 0;
+      font-family: 'Bebas Neue', Arial, sans-serif;
+      font-weight: 700;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    h1 {
+      font-family: 'Bebas Neue', Arial, sans-serif;
+      font-weight: 700;
+      color: #0057b8;
+      font-size: 2.2rem;
+      margin-top: 2rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 1px;
+    }
+    .cuentas-container {
+      width: 100vw;
+      max-width: 27rem;
+      margin: 0 auto;
+      padding: 1.5rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+    .cuenta {
+      background: #f5f5f5;
+      border-radius: 1rem;
+      padding: 1.2rem;
+      box-shadow: 0 0.13rem 0.5rem rgba(0,0,0,0.07);
+      margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: #333;
+  font-family: 'Bebas Neue', Arial, sans-serif;
+  font-weight: 700;
+    }
+    .cuenta strong {
+  color: #0057b8;
+  font-family: 'Bebas Neue', Arial, sans-serif;
+  font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cuentas</h1>
+  <div class="cuentas-container" id="cuentasContainer">
+    <!-- Aquí se mostrarán las cuentas de las mesas -->
+  </div>
+  <div class="cuenta-dia" style="width:100%;max-width:27rem;margin:0 auto;">
+    <div style="margin-bottom:0.5rem;">Fecha: <span id="fechaDia"></span></div>
+    <div style="margin-bottom:1rem;">Última Actualización: <span id="horaActualizacion"></span></div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#0057b8;color:#fff;">
+          <th style="padding:0.4rem;border:1px solid #ccc;">Referencia</th>
+          <th style="padding:0.4rem;border:1px solid #ccc;">Cantidad</th>
+          <th style="padding:0.4rem;border:1px solid #ccc;">Precio</th>
+          <th style="padding:0.4rem;border:1px solid #ccc;">Total</th>
+        </tr>
+      </thead>
+      <tbody id="tablaCuentaDia">
+        <!-- Productos se insertan aquí -->
+      </tbody>
+    </table>
+    <button id="descargarCuentaDia" style="margin-top:2rem;width:100%;background:#1eae60;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-weight:700;font-size:1.2rem;padding:0.8rem 0;border:none;border-radius:0.7rem;cursor:pointer;">DESCARGAR</button>
+    <button id="borrarDiaBtn" style="margin-top:1rem;width:100%;background:#d32f2f;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-weight:700;font-size:1.2rem;padding:0.8rem 0;border:none;border-radius:0.7rem;cursor:pointer;">BORRAR DIA</button>
+    <div id="modalBorrarDia" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:999;align-items:center;justify-content:center;">
+      <div style="background:#fff;padding:2rem 1.5rem;border-radius:1rem;max-width:90vw;width:22rem;box-shadow:0 0.5rem 2rem rgba(0,0,0,0.15);display:flex;flex-direction:column;align-items:center;gap:1.2rem;">
+        <div style="font-size:2.5rem;color:#d32f2f;">&#9888;</div>
+        <h2 style="font-size:1.1rem;font-weight:700;text-align:center;">ESTÁS APUNTO DE LIMPIAR LAS VENTAS DE TODO EL TURNO. <br>NINGUNA DE ESTAS CUENTA CON COPIA DE RESPALDO, NI EN LA NUBE,<br>ASEGÚRATE DE NO HABER MÁS MESAS ACTIVAS</h2>
+        <div style="color:#d32f2f;font-size:1rem;text-align:center;font-weight:700;">&#9888; ASEGÚRATE DE HABER DESCARGADO LAS VENTAS DE HOY, NO HAY MARCHA ATRÁS</div>
+        <div style="display:flex;flex-direction:column;gap:0.7rem;width:100%;">
+          <button id="borrarDefinitivoBtn" style="background:#d32f2f;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-weight:700;font-size:1.1rem;padding:0.7rem 0;border:none;border-radius:0.7rem;cursor:pointer;margin-bottom:0.5rem;">BORRAR DEFINITIVAMENTE</button>
+          <button id="cancelarBorrarBtn" style="background:#e0e0e0;color:#333;font-family:'Bebas Neue',Arial,sans-serif;font-weight:700;font-size:1.1rem;padding:0.7rem 0;border:none;border-radius:0.7rem;cursor:pointer;">CANCELAR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Modal borrar día
+    document.addEventListener('DOMContentLoaded', function(){
+      const borrarDiaBtn = document.getElementById('borrarDiaBtn');
+      const modal = document.getElementById('modalBorrarDia');
+      const borrarDefinitivoBtn = document.getElementById('borrarDefinitivoBtn');
+      const cancelarBorrarBtn = document.getElementById('cancelarBorrarBtn');
+      if (borrarDiaBtn && modal) {
+        borrarDiaBtn.onclick = function() {
+          modal.style.display = 'flex';
+        };
+      }
+      if (cancelarBorrarBtn) {
+        cancelarBorrarBtn.onclick = function() {
+          modal.style.display = 'none';
+        };
+      }
+      if (borrarDefinitivoBtn) {
+        borrarDefinitivoBtn.onclick = function() {
+          localStorage.removeItem('cuenta_dia');
+          modal.style.display = 'none';
+          location.reload();
+        };
+      }
+    });
+    // Descargar cuenta del día en PDF
+    document.addEventListener('DOMContentLoaded', function(){
+      const btnDescargar = document.getElementById('descargarCuentaDia');
+      if (btnDescargar) {
+        btnDescargar.onclick = function() {
+          const cuentaDia = JSON.parse(localStorage.getItem('cuenta_dia') || '{}');
+          const { jsPDF } = window.jspdf || {};
+          if (!jsPDF) {
+            alert('No se encontró jsPDF. No se puede descargar.');
+            return;
+          }
+          const doc = new jsPDF();
+          let y = 20;
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(18);
+          doc.text('BAHIA CHILL - CUENTA DEL DÍA', 105, y, {align:'center'});
+          y += 10;
+          doc.setFontSize(12);
+          doc.setFont('helvetica','normal');
+          doc.text(`Fecha: ${cuentaDia.fecha || ''}`, 15, y);
+          doc.text(`Última Actualización: ${cuentaDia.ultimaActualizacion || ''}`, 120, y);
+          y += 10;
+          doc.setFont('helvetica','bold');
+          doc.text('Referencia', 15, y);
+          doc.text('Cantidad', 70, y);
+          doc.text('Precio', 105, y);
+          doc.text('Total', 150, y);
+          y += 8;
+          doc.setFont('helvetica','normal');
+          let subtotal = 0;
+          if (Array.isArray(cuentaDia.productos)) {
+            cuentaDia.productos.forEach(prod => {
+              doc.text(`${prod.ref}`, 15, y);
+              doc.text(`${prod.cantidad}`, 70, y);
+              doc.text(`$${prod.precio}`, 105, y);
+              doc.text(`$${prod.total}`, 150, y);
+              subtotal += prod.total || 0;
+              y += 8;
+            });
+          }
+          y += 4;
+          let descuentoTotal = 0;
+          if (Array.isArray(cuentaDia.descuentos)) {
+            descuentoTotal = cuentaDia.descuentos.reduce((acc, d) => acc + (d || 0), 0);
+          } else if (typeof cuentaDia.descuentoTotal === 'number') {
+            descuentoTotal = cuentaDia.descuentoTotal;
+          }
+          doc.setFont('helvetica','bold');
+          doc.text(`SUBTOTAL: $${subtotal}`, 15, y);
+          y += 8;
+          doc.text(`DESCUENTO: ${descuentoTotal > 0 ? `$${descuentoTotal}` : 'N/A'}`, 15, y);
+          y += 8;
+          doc.text(`TOTAL: $${subtotal - descuentoTotal}`, 15, y);
+          doc.save(`Cuenta_Dia_${cuentaDia.fecha || ''}.pdf`);
+        };
+      }
+    });
+    // --- Mostrar cuentas de mesas ---
+    function getMesasState() {
+      return JSON.parse(localStorage.getItem('mesas_state') || '{}');
+    }
+    function renderCuentas() {
+      const container = document.getElementById('cuentasContainer');
+      container.innerHTML = '';
+      const mesasState = getMesasState();
+      Object.entries(mesasState).forEach(([mesaId, mesaData]) => {
+        if (mesaData.pedido && Array.isArray(mesaData.pedido.items) && mesaData.pedido.items.length > 0) {
+          const total = mesaData.pedido.total || 0;
+          const abono = mesaData.pedido.abono || 0;
+          const html = `<div class='cuenta'><strong>Mesa ${mesaId}</strong><br>Total: $${total}<br>Abono: $${abono}<br>Restante: $${(total-abono).toFixed(2)}</div>`;
+          container.innerHTML += html;
+        }
+      });
+    }
+    // --- Cuenta del día real ---
+    function renderCuentaDia() {
+      const cuentaDia = JSON.parse(localStorage.getItem('cuenta_dia') || '{}');
+      document.getElementById('fechaDia').textContent = cuentaDia.fecha || '';
+      document.getElementById('horaActualizacion').textContent = cuentaDia.ultimaActualizacion || '';
+      const tbody = document.getElementById('tablaCuentaDia');
+      tbody.innerHTML = '';
+      let subtotal = 0;
+      let descuentoTotal = 0;
+      if (Array.isArray(cuentaDia.productos)) {
+        cuentaDia.productos.forEach(prod => {
+          tbody.innerHTML += `<tr><td style='border:1px solid #ccc;padding:0.3rem;'>${prod.ref}</td><td style='border:1px solid #ccc;padding:0.3rem;'>${prod.cantidad}</td><td style='border:1px solid #ccc;padding:0.3rem;'>$${prod.precio}</td><td style='border:1px solid #ccc;padding:0.3rem;'>$${prod.total}</td></tr>`;
+          subtotal += prod.total || 0;
+        });
+      }
+      // Descuentos: buscar si hay descuentos en cuentaDia.descuentos (array de montos) o en cuentaDia.descuentoTotal
+      if (Array.isArray(cuentaDia.descuentos)) {
+        descuentoTotal = cuentaDia.descuentos.reduce((acc, d) => acc + (d || 0), 0);
+      } else if (typeof cuentaDia.descuentoTotal === 'number') {
+        descuentoTotal = cuentaDia.descuentoTotal;
+      }
+      // Mostrar totales al final
+      tbody.innerHTML += `<tr><td colspan='4' style='border:none;padding-top:1rem;'></td></tr>`;
+      tbody.innerHTML += `<tr><td colspan='3' style='text-align:right;font-weight:700;'>SUBTOTAL:</td><td style='font-weight:700;'>$${subtotal}</td></tr>`;
+      tbody.innerHTML += `<tr><td colspan='3' style='text-align:right;font-weight:700;'>DESCUENTO:</td><td style='font-weight:700;'>${descuentoTotal > 0 ? `$${descuentoTotal}` : 'N/A'}</td></tr>`;
+      tbody.innerHTML += `<tr><td colspan='3' style='text-align:right;font-weight:700;'>TOTAL:</td><td style='font-weight:700;'>$${subtotal - descuentoTotal}</td></tr>`;
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      renderCuentas();
+      renderCuentaDia();
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
